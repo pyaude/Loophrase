@@ -62,45 +62,17 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      # 生成 debug keystore 用于 release 签名（无需配置 secrets 即可安装）
-      - name: Generate debug keystore
-        run: |
-          keytool -genkeypair \
-            -v \
-            -keystore $HOME/debug.keystore \
-            -alias androiddebugkey \
-            -storepass android \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
-      - name: Inject signing config into build.gradle
-        run: |
-          BUILD_GRADLE=android/app/build.gradle
-          # 在 android { } 块中添加 signingConfigs
-          sed -i '/^android {/a\
-        signingConfigs {\
-            release {\
-                storeFile file("'"$HOME"'/debug.keystore")\
-                storePassword "android"\
-                keyAlias "androiddebugkey"\
-                keyPassword "android"\
-            }\
-        }' "$BUILD_GRADLE"
-          # release buildType 使用 release signingConfig
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/' "$BUILD_GRADLE"
-
+      # Expo prebuild 默认 release buildType 使用 debug 签名（signingConfigs.debug）
+      # Gradle 在首次构建时自动生成 debug keystore，无需额外配置
       - name: Build Release APK
         working-directory: android
         run: ./gradlew assembleRelease -x lint -x lintVitalRelease --no-daemon
 
-      - name: Rename APK
+      - name: Collect APK
         run: |
           mkdir -p output
-          cp android/app/build/outputs/apk/release/app-release.apk \
-             output/Loophrase-v${{ steps.version.outputs.APP_VERSION }}.apk
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          cp "$APK_PATH" output/Loophrase-v${{ steps.version.outputs.APP_VERSION }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
