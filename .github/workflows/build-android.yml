@@ -47,6 +47,9 @@ jobs:
             platforms;android-35
             build-tools;35.0.0
 
+      - name: Accept Android SDK licenses
+        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
+
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
