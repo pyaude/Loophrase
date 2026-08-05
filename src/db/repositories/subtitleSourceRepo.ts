@@ -47,3 +47,24 @@ export async function getSubtitleSourcesByProject(
     projectId,
   );
 }
+
+/** 更新字幕原始内容 */
+export async function updateSubtitleRawContent(
+  db: SQLiteDatabase,
+  sourceId: string,
+  rawContent: string,
+): Promise<void> {
+  await db.runAsync(
+    `UPDATE subtitle_source SET raw_content = ? WHERE id = ?`,
+    rawContent,
+    sourceId,
+  );
+}
+
+/** 删除项目的所有切片 */
+export async function deleteSegmentsByProject(
+  db: SQLiteDatabase,
+  projectId: string,
+): Promise<void> {
+  await db.runAsync(`DELETE FROM segment WHERE project_id = ?`, projectId);
+}

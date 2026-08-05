@@ -56,6 +56,10 @@ export default function RootLayout() {
           name="player/[id]"
           options={{ headerShown: false, orientation: 'landscape' }}
         />
+        <Stack.Screen
+          name="subtitle-editor/[id]"
+          options={{ headerShown: true, title: '字幕编辑器', headerBackTitle: '返回' }}
+        />
       </Stack>
     </GestureHandlerRootView>
   );

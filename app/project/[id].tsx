@@ -198,6 +198,16 @@ export default function ProjectDetailScreen() {
         </Pressable>
       </View>
 
+      {/* 字幕编辑入口 */}
+      <Pressable
+        style={styles.subtitleEditBtn}
+        onPress={() => router.push(`/subtitle-editor/${project.id}`)}
+      >
+        <Text style={styles.subtitleEditIcon}>✎</Text>
+        <Text style={styles.subtitleEditText}>编辑原始字幕（清理广告/注释/旁白）</Text>
+        <Text style={styles.subtitleEditArrow}>›</Text>
+      </Pressable>
+
       {/* 合并操作栏 */}
       {selectedIds.size === 2 && (
         <View style={styles.mergeBar}>
@@ -589,5 +599,32 @@ const styles = StyleSheet.create({
   deleteText: {
     color: colors.danger,
     fontSize: fontSizes.sm,
+  },
+  subtitleEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.bgSecondary,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  subtitleEditIcon: {
+    fontSize: 18,
+    color: colors.primary,
+  },
+  subtitleEditText: {
+    flex: 1,
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  subtitleEditArrow: {
+    fontSize: 20,
+    color: colors.primary,
   },
 });
