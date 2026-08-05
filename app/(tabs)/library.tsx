@@ -2,19 +2,31 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getDatabase } from '../../src/db/client';
-import { getAllProjects } from '../../src/db/repositories';
+import { getAllProjects, getSegmentsByProject } from '../../src/db/repositories';
 import type { MediaProject } from '../../src/db/types';
 import { colors, spacing, fontSizes, radius } from '../../src/theme';
 
 export default function LibraryScreen() {
+  const router = useRouter();
   const [projects, setProjects] = useState<MediaProject[]>([]);
+  const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
 
   const loadProjects = useCallback(async () => {
     const db = await getDatabase();
     const list = await getAllProjects(db);
     setProjects(list);
+
+    const counts: Record<string, number> = {};
+    await Promise.all(
+      list.map(async (p) => {
+        const segs = await getSegmentsByProject(db, p.id);
+        counts[p.id] = segs.length;
+      }),
+    );
+    setSegmentCounts(counts);
   }, []);
 
   useEffect(() => {
@@ -29,7 +41,10 @@ export default function LibraryScreen() {
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.importButton}>
+      <Pressable
+        style={styles.importButton}
+        onPress={() => router.push('/import')}
+      >
         <Text style={styles.importText}>+ 导入素材</Text>
       </Pressable>
 
@@ -48,7 +63,10 @@ export default function LibraryScreen() {
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           renderItem={({ item }) => (
-            <Pressable style={styles.projectCard}>
+            <Pressable
+              style={styles.projectCard}
+              onPress={() => router.push(`/project/${item.id}`)}
+            >
               <View style={styles.projectIcon}>
                 <Text style={styles.projectIconText}>
                   {item.source_type === 'video' ? 'VIDEO' : 'AUDIO'}
@@ -59,7 +77,8 @@ export default function LibraryScreen() {
                   {item.title}
                 </Text>
                 <Text style={styles.projectMeta}>
-                  {formatDuration(item.duration_ms)} · {new Date(item.created_at).toLocaleDateString('zh-CN')}
+                  {formatDuration(item.duration_ms)} · {segmentCounts[item.id] ?? 0} 切片 ·{' '}
+                  {new Date(item.created_at).toLocaleDateString('zh-CN')}
                 </Text>
               </View>
             </Pressable>

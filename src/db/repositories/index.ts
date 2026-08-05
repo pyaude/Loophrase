@@ -3,3 +3,5 @@ export * from './segmentRepo';
 export * from './reviewScheduleRepo';
 export * from './practiceAttemptRepo';
 export * from './subtitleSourceRepo';
+export * from './recordingRepo';
+export * from './transcriptionJobRepo';
