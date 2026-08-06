@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/pyaude/loophrase:android-builder
-    timeout-minutes: 15
+    timeout-minutes: 20
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}
       artifact_name: ${{ steps.version.outputs.ARTIFACT_NAME }}
