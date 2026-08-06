@@ -1,10 +1,19 @@
-// 素材库：本地项目列表、导入入口
+// 素材库：本地项目列表、导入入口、删除素材
 
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { getDatabase } from '../../src/db/client';
-import { getAllProjects, getSegmentsByProject } from '../../src/db/repositories';
+import { getAllProjects, getSegmentsByProject, deleteProject } from '../../src/db/repositories';
+import { deleteMediaFile } from '../../src/services/mediaManager';
 import type { MediaProject } from '../../src/db/types';
 import { colors, spacing, fontSizes, radius } from '../../src/theme';
 
@@ -39,6 +48,35 @@ export default function LibraryScreen() {
     setRefreshing(false);
   }, [loadProjects]);
 
+  const handleDelete = useCallback(
+    (project: MediaProject) => {
+      Alert.alert(
+        '删除素材',
+        `确定要删除「${project.title}」吗？\n\n关联的字幕、切片、练习记录和录音将一并删除，此操作不可撤销。`,
+        [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '删除',
+            style: 'destructive',
+            onPress: async () => {
+              const db = await getDatabase();
+              // 删除媒体文件
+              try {
+                deleteMediaFile(project.local_uri);
+              } catch {
+                // 文件删除失败不阻塞流程
+              }
+              // 级联删除 DB 记录（含录音文件）
+              await deleteProject(db, project.id);
+              await loadProjects();
+            },
+          },
+        ],
+      );
+    },
+    [loadProjects],
+  );
+
   return (
     <View style={styles.container}>
       <Pressable
@@ -66,6 +104,7 @@ export default function LibraryScreen() {
             <Pressable
               style={styles.projectCard}
               onPress={() => router.push(`/project/${item.id}`)}
+              onLongPress={() => handleDelete(item)}
             >
               <View style={styles.projectIcon}>
                 <Text style={styles.projectIconText}>
@@ -81,6 +120,16 @@ export default function LibraryScreen() {
                   {new Date(item.created_at).toLocaleDateString('zh-CN')}
                 </Text>
               </View>
+              <Pressable
+                style={styles.deleteBtn}
+                hitSlop={8}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDelete(item);
+                }}
+              >
+                <Text style={styles.deleteIcon}>✕</Text>
+              </Pressable>
             </Pressable>
           )}
           contentContainerStyle={{ paddingBottom: spacing.xl }}
@@ -168,5 +217,12 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  deleteBtn: {
+    padding: spacing.xs,
+  },
+  deleteIcon: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
   },
 });

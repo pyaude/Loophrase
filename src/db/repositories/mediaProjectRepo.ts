@@ -95,5 +95,23 @@ export async function updateProject(
 }
 
 export async function deleteProject(db: SQLiteDatabase, id: string): Promise<void> {
+  // 删除该项目下所有切片的录音文件（外键级联删除 DB 行，但文件需手动清理）
+  const attempts = await db.getAllAsync<{ recording_uri: string | null }>(
+    `SELECT recording_uri FROM practice_attempt
+     WHERE segment_id IN (SELECT id FROM segment WHERE project_id = ?)`,
+    id,
+  );
+  for (const a of attempts) {
+    if (a.recording_uri) {
+      try {
+        const { File } = await import('expo-file-system');
+        const f = new File(a.recording_uri);
+        if (f.exists) f.delete();
+      } catch {
+        // 文件删除失败不阻塞流程
+      }
+    }
+  }
+
   await db.runAsync(`DELETE FROM media_project WHERE id = ?`, id);
 }

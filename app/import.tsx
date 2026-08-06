@@ -1,6 +1,6 @@
-// 导入页：表单式选择媒体 + 字幕 → 授权确认 → 提取时长 → 完成导入
+// 导入页：表单式选择媒体 + 字幕 → 授权确认 → 完成导入
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEventListener } from 'expo';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { colors, spacing, fontSizes, radius } from '../src/theme';
@@ -20,25 +20,28 @@ import {
   performImport,
 } from '../src/services/importService';
 
-type Step = 'form' | 'confirming' | 'importing';
-
 export default function ImportScreen() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('form');
+  const [importing, setImporting] = useState(false);
   const [mediaAsset, setMediaAsset] = useState<DocumentPickerAsset | null>(null);
   const [subtitleAsset, setSubtitleAsset] = useState<DocumentPickerAsset | null>(null);
   const [durationMs, setDurationMs] = useState(0);
+  const [parsingDuration, setParsingDuration] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
-  // 隐藏 VideoView 提取时长
-  const player = useVideoPlayer(null, (p) => {
-    p.loop = false;
-  });
+  // 隐藏播放器，仅用于后台提取时长
+  const player = useVideoPlayer(null);
 
-  useEventListener(player, 'sourceLoad', (event) => {
-    if (event.duration > 0) {
-      setDurationMs(Math.round(event.duration * 1000));
-      setStep('confirming');
+  // 监听播放器状态变化，提取时长
+  useEventListener(player, 'statusChange', (status) => {
+    if (status.status === 'readyToPlay') {
+      const dur = player.duration;
+      if (dur > 0) {
+        setDurationMs(Math.round(dur * 1000));
+      }
+      setParsingDuration(false);
+    } else if (status.status === 'error') {
+      setParsingDuration(false);
     }
   });
 
@@ -47,8 +50,15 @@ export default function ImportScreen() {
     const asset = await pickMediaFile();
     if (!asset) return;
     setMediaAsset(asset);
-    // 加载到播放器以获取时长
-    player.replace(asset.uri);
+    setDurationMs(0);
+    setParsingDuration(true);
+    try {
+      player.replace(asset.uri);
+      // 5 秒超时保护
+      setTimeout(() => setParsingDuration(false), 5000);
+    } catch {
+      setParsingDuration(false);
+    }
   }, [player]);
 
   // 选择字幕文件
@@ -70,7 +80,7 @@ export default function ImportScreen() {
   // 执行导入
   const handleImport = useCallback(async () => {
     if (!mediaAsset || !authorized) return;
-    setStep('importing');
+    setImporting(true);
 
     try {
       const result = await performImport(
@@ -84,18 +94,26 @@ export default function ImportScreen() {
         { text: '好的', onPress: () => router.replace(`/project/${result.project.id}`) },
       ]);
     } catch (err) {
-      Alert.alert('导入失败', String(err), [
-        { text: '返回', onPress: () => router.back() },
-      ]);
+      setImporting(false);
+      Alert.alert('导入失败', String(err));
     }
   }, [mediaAsset, subtitleAsset, authorized, durationMs, router]);
 
   const canConfirm = mediaAsset !== null;
 
+  if (importing) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>正在导入...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* 隐藏的 VideoView，仅用于提取时长 */}
-      <View style={{ width: 1, height: 1, opacity: 0 }}>
+      <View style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}>
         <VideoView
           player={player}
           style={{ width: 1, height: 1 }}
@@ -104,126 +122,124 @@ export default function ImportScreen() {
         />
       </View>
 
-      {step === 'importing' && (
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>正在导入...</Text>
-        </View>
-      )}
+      <View style={styles.form}>
+        <Text style={styles.title}>导入素材</Text>
+        <Text style={styles.subtitle}>
+          选择视频/音频文件和对应的字幕文件（字幕可选）
+        </Text>
 
-      {step === 'form' && (
-        <View style={styles.form}>
-          <Text style={styles.title}>导入素材</Text>
-          <Text style={styles.subtitle}>
-            选择视频/音频文件和对应的字幕文件（字幕可选）
-          </Text>
-
-          {/* 媒体文件选择 */}
-          <Text style={styles.sectionLabel}>媒体文件</Text>
-          <Pressable
-            style={[styles.filePicker, mediaAsset && styles.filePickerFilled]}
-            onPress={handlePickMedia}
-          >
-            {mediaAsset ? (
-              <View style={styles.fileInfo}>
-                <Text style={styles.fileIcon}>🎬</Text>
-                <View style={styles.fileDetails}>
-                  <Text style={styles.fileName} numberOfLines={1}>
-                    {mediaAsset.name}
+        {/* 媒体文件选择 */}
+        <Text style={styles.sectionLabel}>媒体文件</Text>
+        <Pressable
+          style={[styles.filePicker, mediaAsset && styles.filePickerFilled]}
+          onPress={handlePickMedia}
+        >
+          {mediaAsset ? (
+            <View style={styles.fileInfo}>
+              <Text style={styles.fileIcon}>🎬</Text>
+              <View style={styles.fileDetails}>
+                <Text style={styles.fileName} numberOfLines={1}>
+                  {mediaAsset.name}
+                </Text>
+                {parsingDuration ? (
+                  <Text style={styles.fileHint}>正在解析时长...</Text>
+                ) : durationMs > 0 ? (
+                  <Text style={styles.fileHint}>
+                    时长 {formatDuration(durationMs)} · 点击重新选择
                   </Text>
+                ) : (
                   <Text style={styles.fileHint}>点击重新选择</Text>
-                </View>
+                )}
               </View>
-            ) : (
-              <View style={styles.fileInfo}>
-                <Text style={styles.fileIcon}>🎬</Text>
-                <View style={styles.fileDetails}>
-                  <Text style={styles.fileName}>选择视频或音频</Text>
-                  <Text style={styles.fileHint}>支持 MP4 / MP3 / M4A</Text>
-                </View>
-                <Text style={styles.pickerArrow}>＋</Text>
-              </View>
-            )}
-          </Pressable>
-
-          {/* 字幕文件选择 */}
-          <Text style={styles.sectionLabel}>字幕文件（可选）</Text>
-          <Pressable
-            style={[styles.filePicker, subtitleAsset && styles.filePickerFilled]}
-            onPress={handlePickSubtitle}
-          >
-            {subtitleAsset ? (
-              <View style={styles.fileInfo}>
-                <Text style={styles.fileIcon}>📄</Text>
-                <View style={styles.fileDetails}>
-                  <Text style={styles.fileName} numberOfLines={1}>
-                    {subtitleAsset.name}
-                  </Text>
-                  <Text style={styles.fileHint}>点击重新选择</Text>
-                </View>
-                <Pressable
-                  style={styles.removeBtn}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleRemoveSubtitle();
-                  }}
-                >
-                  <Text style={styles.removeText}>✕</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.fileInfo}>
-                <Text style={styles.fileIcon}>📄</Text>
-                <View style={styles.fileDetails}>
-                  <Text style={styles.fileName}>选择字幕文件</Text>
-                  <Text style={styles.fileHint}>支持 SRT / VTT，可跳过</Text>
-                </View>
-                <Text style={styles.pickerArrow}>＋</Text>
-              </View>
-            )}
-          </Pressable>
-
-          {/* 授权确认 */}
-          <Pressable
-            style={styles.checkboxRow}
-            onPress={() => setAuthorized(!authorized)}
-          >
-            <View style={[styles.checkbox, authorized && styles.checkboxChecked]}>
-              {authorized && <Text style={styles.checkmark}>✓</Text>}
             </View>
-            <Text style={styles.checkboxLabel}>
-              我拥有或获授权使用此素材
-            </Text>
-          </Pressable>
+          ) : (
+            <View style={styles.fileInfo}>
+              <Text style={styles.fileIcon}>🎬</Text>
+              <View style={styles.fileDetails}>
+                <Text style={styles.fileName}>选择视频或音频</Text>
+                <Text style={styles.fileHint}>支持 MP4 / MP3 / M4A</Text>
+              </View>
+              <Text style={styles.pickerArrow}>＋</Text>
+            </View>
+          )}
+        </Pressable>
 
-          <Text style={styles.privacyHint}>
-            原视频和录音默认仅保存在本机，不会上传到云端。
+        {/* 字幕文件选择 */}
+        <Text style={styles.sectionLabel}>字幕文件（可选）</Text>
+        <Pressable
+          style={[styles.filePicker, subtitleAsset && styles.filePickerFilled]}
+          onPress={handlePickSubtitle}
+        >
+          {subtitleAsset ? (
+            <View style={styles.fileInfo}>
+              <Text style={styles.fileIcon}>📄</Text>
+              <View style={styles.fileDetails}>
+                <Text style={styles.fileName} numberOfLines={1}>
+                  {subtitleAsset.name}
+                </Text>
+                <Text style={styles.fileHint}>点击重新选择</Text>
+              </View>
+              <Pressable
+                style={styles.removeBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleRemoveSubtitle();
+                }}
+              >
+                <Text style={styles.removeText}>✕</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.fileInfo}>
+              <Text style={styles.fileIcon}>📄</Text>
+              <View style={styles.fileDetails}>
+                <Text style={styles.fileName}>选择字幕文件</Text>
+                <Text style={styles.fileHint}>支持 SRT / VTT，可跳过</Text>
+              </View>
+              <Text style={styles.pickerArrow}>＋</Text>
+            </View>
+          )}
+        </Pressable>
+
+        {/* 授权确认 */}
+        <Pressable
+          style={styles.checkboxRow}
+          onPress={() => setAuthorized(!authorized)}
+        >
+          <View style={[styles.checkbox, authorized && styles.checkboxChecked]}>
+            {authorized && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+          <Text style={styles.checkboxLabel}>
+            我拥有或获授权使用此素材
           </Text>
+        </Pressable>
 
-          {/* 操作按钮 */}
-          <Pressable
-            style={[styles.importButton, (!canConfirm || !authorized) && styles.buttonDisabled]}
-            disabled={!canConfirm || !authorized}
-            onPress={handleImport}
-          >
-            <Text style={styles.buttonText}>开始导入</Text>
-          </Pressable>
+        <Text style={styles.privacyHint}>
+          原视频和录音默认仅保存在本机，不会上传到云端。
+        </Text>
 
-          <Pressable style={styles.cancelButton} onPress={() => router.back()}>
-            <Text style={styles.cancelText}>取消</Text>
-          </Pressable>
-        </View>
-      )}
+        {/* 操作按钮 */}
+        <Pressable
+          style={[styles.importButton, (!canConfirm || !authorized) && styles.buttonDisabled]}
+          disabled={!canConfirm || !authorized}
+          onPress={handleImport}
+        >
+          <Text style={styles.buttonText}>开始导入</Text>
+        </Pressable>
 
-      {/* 确认中（正在提取时长） */}
-      {step === 'confirming' && (
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>正在解析媒体信息...</Text>
-        </View>
-      )}
+        <Pressable style={styles.cancelButton} onPress={() => router.back()}>
+          <Text style={styles.cancelText}>取消</Text>
+        </Pressable>
+      </View>
     </View>
   );
+}
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.round(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({
@@ -235,6 +251,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.bg,
   },
   loadingText: {
     marginTop: spacing.md,
