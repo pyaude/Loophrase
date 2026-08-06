@@ -82,6 +82,7 @@ jobs:
         if: always()
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
           BUILD_STATUS: ${{ job.status }}
           APP_VERSION: ${{ steps.version.outputs.APP_VERSION }}
           REPO_NAME: ${{ github.repository }}
@@ -90,6 +91,18 @@ jobs:
           if [ -z "$DINGTALK_WEBHOOK" ]; then
             echo "DINGTALK_WEBHOOK not set, skipping notification"
             exit 0
+          fi
+
+          # 计算签名（钉钉加签验证）
+          if [ -n "$DINGTALK_SECRET" ]; then
+            TIMESTAMP=$(date +%s%3N)
+            STRING_TO_SIGN="$TIMESTAMP\n$DINGTALK_SECRET"
+            SIGNATURE=$(printf "$STRING_TO_SIGN" | openssl dgst -sha256 -hmac "$DINGTALK_SECRET" -binary | base64)
+            # URL 编码
+            SIGNATURE_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$SIGNATURE'))")
+            WEBHOOK_URL="${DINGTALK_WEBHOOK}&timestamp=$TIMESTAMP&sign=$SIGNATURE_ENC"
+          else
+            WEBHOOK_URL="$DINGTALK_WEBHOOK"
           fi
 
           if [ "$BUILD_STATUS" = "success" ]; then
@@ -101,7 +114,7 @@ jobs:
             TEXT="### ❌ APK 构建失败\n\n**状态：** $BUILD_STATUS\n\n[查看日志](https://github.com/$REPO_NAME/actions/runs/$RUN_ID)"
           fi
 
-          curl -s -X POST "$DINGTALK_WEBHOOK" \
+          curl -s -X POST "$WEBHOOK_URL" \
             -H 'Content-Type: application/json' \
             -d "{
               \"msgtype\": \"markdown\",
