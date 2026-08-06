@@ -34,11 +34,25 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          key: prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.*', 'package.json', 'package-lock.json') }}
+          key: prebuild-v2-${{ hashFiles('app.json', 'app.config.*', 'package.json', 'package-lock.json') }}
 
       - name: Generate native Android project
         if: steps.cache-prebuild.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform android --no-install --clean
+
+      - name: Force arm64-only build
+        run: |
+          python3 -c "
+          import re
+          with open('android/gradle.properties', 'r') as f:
+              content = f.read()
+          content = re.sub(r'reactNativeArchitectures=.*', 'reactNativeArchitectures=arm64-v8a', content)
+          if 'reactNativeArchitectures' not in content:
+              content += '\nreactNativeArchitectures=arm64-v8a\n'
+          with open('android/gradle.properties', 'w') as f:
+              f.write(content)
+          "
+          grep "reactNativeArchitectures" android/gradle.properties
 
       # Gradle 缓存
       - name: Cache Gradle
