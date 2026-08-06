@@ -35,6 +35,6 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:android-builder
+          tags: ghcr.io/pyaude/loophrase:android-builder
           cache-from: type=gha
           cache-to: type=gha,mode=max
