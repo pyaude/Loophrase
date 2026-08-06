@@ -1,4 +1,4 @@
-// 导入页：文件选择 → 授权确认 → 提取时长 → 完成导入
+// 导入页：表单式选择媒体 + 字幕 → 授权确认 → 提取时长 → 完成导入
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -12,19 +12,25 @@ import {
 import { useRouter } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEventListener } from 'expo';
+import type { DocumentPickerAsset } from 'expo-document-picker';
 import { colors, spacing, fontSizes, radius } from '../src/theme';
-import { pickFiles, performImport, type PickedFiles } from '../src/services/importService';
+import {
+  pickMediaFile,
+  pickSubtitleAsset,
+  performImport,
+} from '../src/services/importService';
 
-type Step = 'idle' | 'picked' | 'confirming' | 'importing' | 'done';
+type Step = 'form' | 'confirming' | 'importing';
 
 export default function ImportScreen() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('idle');
-  const [files, setFiles] = useState<PickedFiles | null>(null);
+  const [step, setStep] = useState<Step>('form');
+  const [mediaAsset, setMediaAsset] = useState<DocumentPickerAsset | null>(null);
+  const [subtitleAsset, setSubtitleAsset] = useState<DocumentPickerAsset | null>(null);
   const [durationMs, setDurationMs] = useState(0);
   const [authorized, setAuthorized] = useState(false);
 
-  // 用隐藏 VideoView 提取时长
+  // 隐藏 VideoView 提取时长
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
   });
@@ -36,32 +42,41 @@ export default function ImportScreen() {
     }
   });
 
-  // 选择文件
-  const handlePick = useCallback(async () => {
-    setStep('importing');
-    const picked = await pickFiles();
-    if (!picked) {
-      router.back();
-      return;
-    }
-    setFiles(picked);
-    // 用播放器加载以获取时长
-    player.replace(picked.mediaAsset.uri);
-  }, [player, router]);
+  // 选择媒体文件
+  const handlePickMedia = useCallback(async () => {
+    const asset = await pickMediaFile();
+    if (!asset) return;
+    setMediaAsset(asset);
+    // 加载到播放器以获取时长
+    player.replace(asset.uri);
+  }, [player]);
 
-  useEffect(() => {
-    if (step === 'idle') {
-      handlePick();
+  // 选择字幕文件
+  const handlePickSubtitle = useCallback(async () => {
+    try {
+      const asset = await pickSubtitleAsset();
+      if (!asset) return;
+      setSubtitleAsset(asset);
+    } catch (err) {
+      Alert.alert('格式不支持', String(err));
     }
-  }, [step, handlePick]);
+  }, []);
+
+  // 清除字幕
+  const handleRemoveSubtitle = useCallback(() => {
+    setSubtitleAsset(null);
+  }, []);
 
   // 执行导入
   const handleImport = useCallback(async () => {
-    if (!files || !authorized) return;
+    if (!mediaAsset || !authorized) return;
     setStep('importing');
 
     try {
-      const result = await performImport(files, durationMs);
+      const result = await performImport(
+        { mediaAsset, subtitleAsset: subtitleAsset ?? undefined },
+        durationMs,
+      );
       const subtitleMsg = result.segmentCount > 0
         ? `已创建项目「${result.project.title}」，生成 ${result.segmentCount} 个练习切片`
         : `已创建项目「${result.project.title}」。未导入字幕，你可以在项目详情页后续添加字幕`;
@@ -73,10 +88,9 @@ export default function ImportScreen() {
         { text: '返回', onPress: () => router.back() },
       ]);
     }
-  }, [files, authorized, durationMs, router]);
+  }, [mediaAsset, subtitleAsset, authorized, durationMs, router]);
 
-  const mediaName = files?.mediaAsset.name ?? '';
-  const subtitleName = files?.subtitleAsset?.name;
+  const canConfirm = mediaAsset !== null;
 
   return (
     <View style={styles.container}>
@@ -93,20 +107,81 @@ export default function ImportScreen() {
       {step === 'importing' && (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>正在处理...</Text>
+          <Text style={styles.loadingText}>正在导入...</Text>
         </View>
       )}
 
-      {step === 'confirming' && (
-        <View style={styles.confirmContainer}>
-          <Text style={styles.title}>确认导入</Text>
+      {step === 'form' && (
+        <View style={styles.form}>
+          <Text style={styles.title}>导入素材</Text>
+          <Text style={styles.subtitle}>
+            选择视频/音频文件和对应的字幕文件（字幕可选）
+          </Text>
 
-          {/* 文件信息 */}
-          <View style={styles.infoCard}>
-            <InfoRow label="媒体文件" value={mediaName} />
-            <InfoRow label="字幕文件" value={subtitleName ?? '（无字幕）'} />
-            <InfoRow label="时长" value={formatDuration(durationMs)} />
-          </View>
+          {/* 媒体文件选择 */}
+          <Text style={styles.sectionLabel}>媒体文件</Text>
+          <Pressable
+            style={[styles.filePicker, mediaAsset && styles.filePickerFilled]}
+            onPress={handlePickMedia}
+          >
+            {mediaAsset ? (
+              <View style={styles.fileInfo}>
+                <Text style={styles.fileIcon}>🎬</Text>
+                <View style={styles.fileDetails}>
+                  <Text style={styles.fileName} numberOfLines={1}>
+                    {mediaAsset.name}
+                  </Text>
+                  <Text style={styles.fileHint}>点击重新选择</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.fileInfo}>
+                <Text style={styles.fileIcon}>🎬</Text>
+                <View style={styles.fileDetails}>
+                  <Text style={styles.fileName}>选择视频或音频</Text>
+                  <Text style={styles.fileHint}>支持 MP4 / MP3 / M4A</Text>
+                </View>
+                <Text style={styles.pickerArrow}>＋</Text>
+              </View>
+            )}
+          </Pressable>
+
+          {/* 字幕文件选择 */}
+          <Text style={styles.sectionLabel}>字幕文件（可选）</Text>
+          <Pressable
+            style={[styles.filePicker, subtitleAsset && styles.filePickerFilled]}
+            onPress={handlePickSubtitle}
+          >
+            {subtitleAsset ? (
+              <View style={styles.fileInfo}>
+                <Text style={styles.fileIcon}>📄</Text>
+                <View style={styles.fileDetails}>
+                  <Text style={styles.fileName} numberOfLines={1}>
+                    {subtitleAsset.name}
+                  </Text>
+                  <Text style={styles.fileHint}>点击重新选择</Text>
+                </View>
+                <Pressable
+                  style={styles.removeBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRemoveSubtitle();
+                  }}
+                >
+                  <Text style={styles.removeText}>✕</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.fileInfo}>
+                <Text style={styles.fileIcon}>📄</Text>
+                <View style={styles.fileDetails}>
+                  <Text style={styles.fileName}>选择字幕文件</Text>
+                  <Text style={styles.fileHint}>支持 SRT / VTT，可跳过</Text>
+                </View>
+                <Text style={styles.pickerArrow}>＋</Text>
+              </View>
+            )}
+          </Pressable>
 
           {/* 授权确认 */}
           <Pressable
@@ -127,8 +202,8 @@ export default function ImportScreen() {
 
           {/* 操作按钮 */}
           <Pressable
-            style={[styles.importButton, !authorized && styles.buttonDisabled]}
-            disabled={!authorized}
+            style={[styles.importButton, (!canConfirm || !authorized) && styles.buttonDisabled]}
+            disabled={!canConfirm || !authorized}
             onPress={handleImport}
           >
             <Text style={styles.buttonText}>开始导入</Text>
@@ -139,26 +214,16 @@ export default function ImportScreen() {
           </Pressable>
         </View>
       )}
+
+      {/* 确认中（正在提取时长） */}
+      {step === 'confirming' && (
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>正在解析媒体信息...</Text>
+        </View>
+      )}
     </View>
   );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function formatDuration(ms: number): string {
-  const totalSec = Math.round(ms / 1000);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({
@@ -176,7 +241,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.textSecondary,
   },
-  confirmContainer: {
+  form: {
     flex: 1,
     padding: spacing.lg,
   },
@@ -184,33 +249,79 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xxl,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
-  infoCard: {
+  subtitle: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xl,
+    lineHeight: 20,
+  },
+  sectionLabel: {
+    fontSize: fontSizes.sm,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+  filePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.bgSecondary,
     borderRadius: radius.md,
     padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  filePickerFilled: {
+    borderColor: colors.primary,
+    borderStyle: 'solid',
+  },
+  fileInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  fileIcon: {
+    fontSize: 28,
   },
-  infoLabel: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
+  fileDetails: {
+    flex: 1,
   },
-  infoValue: {
+  fileName: {
     fontSize: fontSizes.md,
     color: colors.text,
     fontWeight: '500',
-    maxWidth: '60%',
+  },
+  fileHint: {
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  pickerArrow: {
+    fontSize: 24,
+    color: colors.primary,
+    fontWeight: '300',
+  },
+  removeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
+    backgroundColor: colors.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
     gap: spacing.sm,
   },
   checkbox: {

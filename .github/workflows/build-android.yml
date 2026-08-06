@@ -74,7 +74,7 @@ jobs:
       - name: Build Release APK
         working-directory: android
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=true -Dorg.gradle.configuration-cache=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4g"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4g"
         run: ./gradlew assembleRelease -x lint -x lintVitalRelease
 
       - name: Collect APK

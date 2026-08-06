@@ -38,11 +38,25 @@ const SUBTITLE_TYPES = [
 const MEDIA_EXTENSIONS = ['.mp4', '.mp3', '.m4a'];
 const SUBTITLE_EXTENSIONS = ['.srt', '.vtt'];
 
-/** 选择媒体文件和字幕文件 */
-export async function pickFiles(): Promise<PickedFiles | null> {
+/** 选择单个媒体文件 */
+export async function pickMediaFile(): Promise<DocumentPickerAsset | null> {
   const result = await getDocumentAsync({
-    type: [...MEDIA_TYPES, ...SUBTITLE_TYPES, '*/*'],
-    multiple: true,
+    type: ['video/*', 'audio/*', '*/*'],
+    multiple: false,
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || !result.assets || result.assets.length === 0) {
+    return null;
+  }
+  return result.assets[0];
+}
+
+/** 选择单个字幕文件 */
+export async function pickSubtitleAsset(): Promise<DocumentPickerAsset | null> {
+  const result = await getDocumentAsync({
+    type: ['application/x-subrip', 'text/vtt', 'application/octet-stream', 'text/plain', '*/*'],
+    multiple: false,
     copyToCacheDirectory: true,
   });
 
@@ -50,21 +64,11 @@ export async function pickFiles(): Promise<PickedFiles | null> {
     return null;
   }
 
-  let mediaAsset: DocumentPickerAsset | undefined;
-  let subtitleAsset: DocumentPickerAsset | undefined;
-
-  for (const asset of result.assets) {
-    const name = asset.name.toLowerCase();
-    if (MEDIA_EXTENSIONS.some((ext) => name.endsWith(ext))) {
-      mediaAsset = asset;
-    } else if (SUBTITLE_EXTENSIONS.some((ext) => name.endsWith(ext))) {
-      subtitleAsset = asset;
-    }
+  const name = result.assets[0].name.toLowerCase();
+  if (!SUBTITLE_EXTENSIONS.some((ext) => name.endsWith(ext))) {
+    throw new Error('请选择 .srt 或 .vtt 格式的字幕文件');
   }
-
-  if (!mediaAsset) return null;
-
-  return { mediaAsset, subtitleAsset };
+  return result.assets[0];
 }
 
 /**
