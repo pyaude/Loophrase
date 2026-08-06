@@ -7,7 +7,7 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}
       artifact_name: ${{ steps.version.outputs.ARTIFACT_NAME }}
@@ -34,6 +34,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -47,23 +48,25 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Generate native Android project
-        run: npx expo prebuild --platform android --no-install --clean
-
-      - name: Cache Gradle
+      # 缓存 expo prebuild 生成的 android 目录
+      # key 基于 app.json/app.config + package.json，未变更时跳过 prebuild
+      - name: Cache prebuild output
+        id: cache-prebuild
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
+          path: android
+          key: prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.*', 'package.json', 'package-lock.json') }}
 
-      # Expo prebuild 默认 release buildType 使用 debug 签名（signingConfigs.debug）
-      # Gradle 在首次构建时自动生成 debug keystore，无需额外配置
+      - name: Generate native Android project
+        if: steps.cache-prebuild.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android --no-install --clean
+
+      # 启用 Gradle daemon + 配置缓存 + 并行构建
       - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease -x lint -x lintVitalRelease --no-daemon
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=true -Dorg.gradle.configuration-cache=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4g"
+        run: ./gradlew assembleRelease -x lint -x lintVitalRelease
 
       - name: Collect APK
         run: |
@@ -77,6 +80,11 @@ jobs:
           name: ${{ steps.version.outputs.ARTIFACT_NAME }}
           path: output/Loophrase-*.apk
           retention-days: 30
+
+      - name: Cleanup Gradle daemon
+        if: always()
+        working-directory: android
+        run: ./gradlew --stop || true
 
       - name: Notify DingTalk
         if: always()

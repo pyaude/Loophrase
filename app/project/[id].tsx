@@ -24,6 +24,7 @@ import {
   deleteProject,
 } from '../../src/db/repositories';
 import { deleteMediaFile } from '../../src/services/mediaManager';
+import { pickSubtitleFile, importSubtitleForProject, createEmptySubtitleForProject } from '../../src/services/subtitleImport';
 import type { MediaProject, Segment, SkipType } from '../../src/db/types';
 import { colors, spacing, fontSizes, radius } from '../../src/theme';
 
@@ -156,6 +157,44 @@ export default function ProjectDetailScreen() {
     });
   }, []);
 
+  // 导入字幕文件（为已有项目追加字幕）
+  const handleImportSubtitle = useCallback(async () => {
+    if (!project) return;
+    try {
+      const asset = await pickSubtitleFile();
+      if (!asset) return;
+
+      const result = await importSubtitleForProject(project.id, asset, project.duration_ms);
+      Alert.alert(
+        '字幕导入成功',
+        `已解析字幕，生成 ${result.segmentCount} 个练习切片`,
+      );
+      await loadData();
+    } catch (err) {
+      Alert.alert('字幕导入失败', String(err));
+    }
+  }, [project, loadData]);
+
+  // 手动创建空白字幕
+  const handleCreateSubtitle = useCallback(async () => {
+    if (!project) return;
+    Alert.alert(
+      '创建空白字幕',
+      '将创建一条覆盖整个视频的占位字幕，你可以在字幕编辑器中添加和编辑内容。',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '创建',
+          onPress: async () => {
+            await createEmptySubtitleForProject(project);
+            await loadData();
+            router.push(`/subtitle-editor/${project.id}`);
+          },
+        },
+      ],
+    );
+  }, [project, loadData, router]);
+
   const handleDeleteProject = useCallback(async () => {
     Alert.alert('删除项目', '确定删除此项目及其所有切片？此操作不可撤销。', [
       { text: '取消', style: 'cancel' },
@@ -198,15 +237,41 @@ export default function ProjectDetailScreen() {
         </Pressable>
       </View>
 
-      {/* 字幕编辑入口 */}
-      <Pressable
-        style={styles.subtitleEditBtn}
-        onPress={() => router.push(`/subtitle-editor/${project.id}`)}
-      >
-        <Text style={styles.subtitleEditIcon}>✎</Text>
-        <Text style={styles.subtitleEditText}>编辑原始字幕（清理广告/注释/旁白）</Text>
-        <Text style={styles.subtitleEditArrow}>›</Text>
-      </Pressable>
+      {/* 字幕操作区 */}
+      <View style={styles.subtitleActions}>
+        {segments.length === 0 ? (
+          <>
+            <View style={styles.noSubtitleHint}>
+              <Text style={styles.noSubtitleText}>
+                此项目还没有字幕，无法开始练习
+              </Text>
+            </View>
+            <Pressable
+              style={styles.subtitleActionBtn}
+              onPress={handleImportSubtitle}
+            >
+              <Text style={styles.subtitleActionIcon}>📂</Text>
+              <Text style={styles.subtitleActionLabel}>导入字幕文件</Text>
+            </Pressable>
+            <Pressable
+              style={styles.subtitleActionBtn}
+              onPress={handleCreateSubtitle}
+            >
+              <Text style={styles.subtitleActionIcon}>✎</Text>
+              <Text style={styles.subtitleActionLabel}>手动创建字幕</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable
+            style={styles.subtitleEditBtn}
+            onPress={() => router.push(`/subtitle-editor/${project.id}`)}
+          >
+            <Text style={styles.subtitleEditIcon}>✎</Text>
+            <Text style={styles.subtitleEditText}>编辑原始字幕（清理广告/注释/旁白）</Text>
+            <Text style={styles.subtitleEditArrow}>›</Text>
+          </Pressable>
+        )}
+      </View>
 
       {/* 合并操作栏 */}
       {selectedIds.size === 2 && (
@@ -626,5 +691,42 @@ const styles = StyleSheet.create({
   subtitleEditArrow: {
     fontSize: 20,
     color: colors.primary,
+  },
+  subtitleActions: {
+    gap: spacing.sm,
+  },
+  noSubtitleHint: {
+    backgroundColor: colors.bgSecondary,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+  },
+  noSubtitleText: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+  },
+  subtitleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.bgSecondary,
+    marginHorizontal: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  subtitleActionIcon: {
+    fontSize: 18,
+  },
+  subtitleActionLabel: {
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+    fontWeight: '500',
   },
 });

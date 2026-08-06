@@ -212,10 +212,24 @@ export default function PlayerScreen() {
     [player],
   );
 
-  if (!project || segments.length === 0) {
+  if (!project) {
     return (
       <View style={styles.loading}>
         <Text style={styles.loadingText}>加载中...</Text>
+      </View>
+    );
+  }
+
+  if (segments.length === 0) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.loadingText}>此项目还没有字幕</Text>
+        <Pressable
+          style={styles.goEditBtn}
+          onPress={() => router.replace(`/project/${project.id}`)}
+        >
+          <Text style={styles.goEditText}>去添加字幕</Text>
+        </Pressable>
       </View>
     );
   }
@@ -466,6 +480,19 @@ const styles = StyleSheet.create({
   loadingText: {
     color: colors.textInverse,
     fontSize: fontSizes.md,
+  },
+  goEditBtn: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  goEditText: {
+    color: colors.primary,
+    fontSize: fontSizes.md,
+    fontWeight: '600',
   },
   videoContainer: {
     width: '100%',

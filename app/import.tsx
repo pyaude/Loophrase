@@ -62,11 +62,12 @@ export default function ImportScreen() {
 
     try {
       const result = await performImport(files, durationMs);
-      Alert.alert(
-        '导入成功',
-        `已创建项目「${result.project.title}」，生成 ${result.segmentCount} 个练习切片`,
-        [{ text: '好的', onPress: () => router.replace(`/project/${result.project.id}`) }],
-      );
+      const subtitleMsg = result.segmentCount > 0
+        ? `已创建项目「${result.project.title}」，生成 ${result.segmentCount} 个练习切片`
+        : `已创建项目「${result.project.title}」。未导入字幕，你可以在项目详情页后续添加字幕`;
+      Alert.alert('导入成功', subtitleMsg, [
+        { text: '好的', onPress: () => router.replace(`/project/${result.project.id}`) },
+      ]);
     } catch (err) {
       Alert.alert('导入失败', String(err), [
         { text: '返回', onPress: () => router.back() },
