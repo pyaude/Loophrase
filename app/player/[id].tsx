@@ -67,6 +67,14 @@ export default function PlayerScreen() {
     setSegments(segs);
     if (proj && segs.length > 0) {
       player.replace(proj.local_uri);
+      // 定位到第一个切片起点（含 lead-in）
+      const seekMs = Math.max(0, segs[0].start_ms - LEAD_IN_MS) / 1000;
+      // 等播放器就绪后再 seek + play
+      const timer = setTimeout(() => {
+        player.currentTime = seekMs;
+        player.play();
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [id, player]);
 
