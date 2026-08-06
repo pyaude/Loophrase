@@ -78,6 +78,39 @@ jobs:
           path: output/Loophrase-*.apk
           retention-days: 30
 
+      - name: Notify DingTalk
+        if: always()
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          BUILD_STATUS: ${{ job.status }}
+          APP_VERSION: ${{ steps.version.outputs.APP_VERSION }}
+          REPO_NAME: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if [ -z "$DINGTALK_WEBHOOK" ]; then
+            echo "DINGTALK_WEBHOOK not set, skipping notification"
+            exit 0
+          fi
+
+          if [ "$BUILD_STATUS" = "success" ]; then
+            TITLE="✅ Loophrase v$APP_VERSION 构建成功"
+            ARTIFACT_URL="https://github.com/$REPO_NAME/actions/runs/$RUN_ID"
+            TEXT="### ✅ APK 构建成功\n\n**版本：** v$APP_VERSION\n\n[📥 点击下载 APK]($ARTIFACT_URL)\n\n> 在 Actions 页面的 Artifacts 区域下载"
+          else
+            TITLE="❌ Loophrase 构建失败"
+            TEXT="### ❌ APK 构建失败\n\n**状态：** $BUILD_STATUS\n\n[查看日志](https://github.com/$REPO_NAME/actions/runs/$RUN_ID)"
+          fi
+
+          curl -s -X POST "$DINGTALK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"msgtype\": \"markdown\",
+              \"markdown\": {
+                \"title\": \"$TITLE\",
+                \"text\": \"$TEXT\"
+              }
+            }"
+
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
