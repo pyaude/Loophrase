@@ -1,15 +1,15 @@
 // 精练播放器：单句循环、变速、字幕模式、标记、回声跟读（§7 + FR-P01~P06）
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   Alert,
-  Platform,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEventListener } from 'expo';
@@ -30,6 +30,9 @@ type PlaybackSpeed = 0.75 | 1 | 1.25;
 type MarkType = 'understood' | 'not_smooth' | 'mastered';
 
 const SPEEDS: PlaybackSpeed[] = [0.75, 1, 1.25];
+const REPEAT_OPTIONS = [0, 2, 3, 5]; // 0 = ∞
+const PAUSE_SENTINEL = -1; // -1 = 跟随句长
+const PAUSE_OPTIONS = [PAUSE_SENTINEL, 0, 1000, 2000, 3000];
 const LEAD_IN_MS = 200;
 const LEAD_OUT_MS = 400;
 
@@ -40,7 +43,10 @@ export default function PlayerScreen() {
   const [project, setProject] = useState<MediaProject | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLooping, setIsLooping] = useState(true);
+  const [repeatCount, setRepeatCount] = useState(3); // 每句复读次数，0=∞
+  const [pauseMs, setPauseMs] = useState<number>(PAUSE_SENTINEL); // 每次复读间隔，-1=跟随句长
+  const [currentRepeat, setCurrentRepeat] = useState(0); // 当前已复读次数
+  const [isPausing, setIsPausing] = useState(false); // 是否在间隔等待中
   const [speed, setSpeed] = useState<PlaybackSpeed>(1);
   const [subtitleMode, setSubtitleMode] = useState<SubtitleMode>('english');
   const [showAnswer, setShowAnswer] = useState(false);
@@ -50,11 +56,51 @@ export default function PlayerScreen() {
   const currentSegment = segments[currentIndex];
   const shadow = useShadowRecorder(currentSegment?.id);
 
+  // refs 供 timeUpdate 回调使用，避免闭包过期
+  const repeatCountRef = useRef(repeatCount);
+  const pauseMsRef = useRef(pauseMs);
+  const currentRepeatRef = useRef(0);
+  const isPausedRef = useRef(false);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const segmentsRef = useRef<Segment[]>([]);
+  const currentIndexRef = useRef(0);
+
+  useEffect(() => { repeatCountRef.current = repeatCount; }, [repeatCount]);
+  useEffect(() => { pauseMsRef.current = pauseMs; }, [pauseMs]);
+  useEffect(() => { segmentsRef.current = segments; }, [segments]);
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
     p.timeUpdateEventInterval = 0.05;
     p.preservesPitch = true;
   });
+
+  const seekToSegment = useCallback(
+    (index: number, autoPlay = true) => {
+      const seg = segmentsRef.current[index];
+      if (!seg) return;
+      // 清除暂停定时器
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
+      }
+      isPausedRef.current = false;
+      setIsPausing(false);
+      currentRepeatRef.current = 0;
+      setCurrentRepeat(0);
+
+      const seekMs = Math.max(0, seg.start_ms - LEAD_IN_MS);
+      player.currentTime = seekMs / 1000;
+      setCurrentIndex(index);
+      setShowAnswer(false);
+      setLastMark(null);
+      setShadowPanelOpen(false);
+      shadow.reset();
+      if (autoPlay) player.play();
+    },
+    [player, shadow],
+  );
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -65,11 +111,12 @@ export default function PlayerScreen() {
     );
     setProject(proj);
     setSegments(segs);
+    segmentsRef.current = segs;
     if (proj && segs.length > 0) {
+      currentRepeatRef.current = 0;
+      setCurrentRepeat(0);
       player.replace(proj.local_uri);
-      // 定位到第一个切片起点（含 lead-in）
       const seekMs = Math.max(0, segs[0].start_ms - LEAD_IN_MS) / 1000;
-      // 等播放器就绪后再 seek + play
       const timer = setTimeout(() => {
         player.currentTime = seekMs;
         player.play();
@@ -84,7 +131,6 @@ export default function PlayerScreen() {
     }, [loadData]),
   );
 
-  // 加载录音列表
   useFocusEffect(
     useCallback(() => {
       if (currentSegment) {
@@ -93,49 +139,101 @@ export default function PlayerScreen() {
     }, [currentSegment]),
   );
 
-  const seekToSegment = useCallback(
-    (index: number) => {
-      const seg = segments[index];
-      if (!seg) return;
-      const seekMs = Math.max(0, seg.start_ms - LEAD_IN_MS);
-      player.currentTime = seekMs / 1000;
-      setCurrentIndex(index);
-      setShowAnswer(false);
-      setLastMark(null);
-      setShadowPanelOpen(false);
-      shadow.reset();
-    },
-    [segments, player, shadow],
-  );
-
-  // 循环 + 跟读流程中的播放监听
+  // 播放监听：复读 + 跟读流程
   useEventListener(player, 'timeUpdate', (event) => {
-    if (!currentSegment) return;
+    const seg = segmentsRef.current[currentIndexRef.current];
+    if (!seg) return;
 
     const currentTimeMs = event.currentTime * 1000;
-    const endWithBuffer = currentSegment.end_ms + LEAD_OUT_MS;
+    const endWithBuffer = seg.end_ms + LEAD_OUT_MS;
 
-    // 回声跟读模式：原句播放完后进入留白→录音
-    if (shadow.phase === 'playing_source' && currentTimeMs >= currentSegment.end_ms) {
+    // 回声跟读模式
+    if (shadow.phase === 'playing_source' && currentTimeMs >= seg.end_ms) {
       player.pause();
-      const segDuration = currentSegment.end_ms - currentSegment.start_ms;
+      const segDuration = seg.end_ms - seg.start_ms;
       shadow.startRecordingAfterDelay(Math.max(segDuration, 1000));
       return;
     }
 
-    // 普通循环
-    if (isLooping && shadow.phase === 'idle' && currentTimeMs >= endWithBuffer) {
-      const seekMs = Math.max(0, currentSegment.start_ms - LEAD_IN_MS);
-      player.currentTime = seekMs / 1000;
+    // 普通复读逻辑
+    if (shadow.phase === 'idle' && !isPausedRef.current && currentTimeMs >= endWithBuffer) {
+      player.pause();
+      const rc = repeatCountRef.current;
+      const cr = currentRepeatRef.current;
+
+      // 还需要继续复读
+      if (rc === 0 || cr < rc - 1) {
+        currentRepeatRef.current = cr + 1;
+        setCurrentRepeat(cr + 1);
+        isPausedRef.current = true;
+        setIsPausing(true);
+
+        // pauseMs = -1 时跟随当前句长，否则使用设定值
+        const rawPause = pauseMsRef.current;
+        const pauseDuration = rawPause === PAUSE_SENTINEL
+          ? Math.max(seg.end_ms - seg.start_ms, 500)
+          : rawPause;
+        const seekMs = Math.max(0, seg.start_ms - LEAD_IN_MS);
+        pauseTimerRef.current = setTimeout(() => {
+          player.currentTime = seekMs / 1000;
+          player.play();
+          isPausedRef.current = false;
+          setIsPausing(false);
+          pauseTimerRef.current = null;
+        }, pauseDuration);
+      } else {
+        // 复读次数用完，自动跳下一句
+        const nextIndex = currentIndexRef.current + 1;
+        if (nextIndex < segmentsRef.current.length) {
+          // 短暂停顿后自动跳转
+          isPausedRef.current = true;
+          setIsPausing(true);
+          const rawPause = pauseMsRef.current;
+          const pauseDuration = rawPause === PAUSE_SENTINEL
+            ? Math.max(seg.end_ms - seg.start_ms, 500)
+            : rawPause;
+          pauseTimerRef.current = setTimeout(() => {
+            seekToSegment(nextIndex);
+          }, Math.max(pauseDuration, 500));
+        } else {
+          // 最后一句，停止
+          currentRepeatRef.current = 0;
+          setCurrentRepeat(0);
+        }
+      }
     }
   });
 
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+    };
+  }, []);
+
   const togglePlay = useCallback(() => {
+    // 如果在暂停等待中，点击播放立即跳过等待
+    if (isPausedRef.current && pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+      isPausedRef.current = false;
+      setIsPausing(false);
+      player.play();
+      return;
+    }
     if (player.playing) player.pause();
     else player.play();
   }, [player]);
 
-  const toggleLoop = useCallback(() => setIsLooping((p) => !p), []);
+  const cycleRepeat = useCallback(() => {
+    const idx = REPEAT_OPTIONS.indexOf(repeatCount);
+    setRepeatCount(REPEAT_OPTIONS[(idx + 1) % REPEAT_OPTIONS.length]);
+  }, [repeatCount]);
+
+  const cyclePause = useCallback(() => {
+    const idx = PAUSE_OPTIONS.indexOf(pauseMs);
+    setPauseMs(PAUSE_OPTIONS[(idx + 1) % PAUSE_OPTIONS.length]);
+  }, [pauseMs]);
 
   const cycleSpeed = useCallback(() => {
     const idx = SPEEDS.indexOf(speed);
@@ -153,12 +251,14 @@ export default function PlayerScreen() {
   }, [subtitleMode]);
 
   const goPrev = useCallback(() => {
-    if (currentIndex > 0) seekToSegment(currentIndex - 1);
-  }, [currentIndex, seekToSegment]);
+    if (currentIndexRef.current > 0) seekToSegment(currentIndexRef.current - 1);
+  }, [seekToSegment]);
 
   const goNext = useCallback(() => {
-    if (currentIndex < segments.length - 1) seekToSegment(currentIndex + 1);
-  }, [currentIndex, segments.length, seekToSegment]);
+    if (currentIndexRef.current < segmentsRef.current.length - 1) {
+      seekToSegment(currentIndexRef.current + 1);
+    }
+  }, [seekToSegment]);
 
   const handleMark = useCallback(
     async (mark: MarkType) => {
@@ -176,44 +276,33 @@ export default function PlayerScreen() {
     [currentSegment],
   );
 
-  // 开始回声跟读
   const handleStartShadow = useCallback(async () => {
     if (!currentSegment) return;
     setShadowPanelOpen(true);
-    setIsLooping(false);
     const ok = await shadow.startShadowing();
     if (!ok) {
       setShadowPanelOpen(false);
-      setIsLooping(true);
       Alert.alert('无法录音', shadow.error ?? '请检查录音权限');
       return;
     }
-    // 从切片起点播放
     const seekMs = Math.max(0, currentSegment.start_ms - LEAD_IN_MS);
     player.currentTime = seekMs / 1000;
     player.play();
     trackEvent('shadow_started');
   }, [currentSegment, shadow, player]);
 
-  // 停止录音
   const handleStopRecording = useCallback(async () => {
     const uri = await shadow.stopRecording();
-    if (uri) {
-      trackEvent('recording_saved');
-    }
+    if (uri) trackEvent('recording_saved');
   }, [shadow]);
 
-  // 取消跟读
   const handleCancelShadow = useCallback(async () => {
     await shadow.cancelRecording();
     setShadowPanelOpen(false);
-    setIsLooping(true);
   }, [shadow]);
 
-  // 播放录音
   const handlePlayRecording = useCallback(
     (uri: string) => {
-      // 用 player 临时播放录音
       player.replace(uri);
       player.play();
     },
@@ -222,15 +311,15 @@ export default function PlayerScreen() {
 
   if (!project) {
     return (
-      <View style={styles.loading}>
+      <SafeAreaView style={styles.loading} edges={['top']}>
         <Text style={styles.loadingText}>加载中...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (segments.length === 0) {
     return (
-      <View style={styles.loading}>
+      <SafeAreaView style={styles.loading} edges={['top']}>
         <Text style={styles.loadingText}>此项目还没有字幕</Text>
         <Pressable
           style={styles.goEditBtn}
@@ -238,15 +327,15 @@ export default function PlayerScreen() {
         >
           <Text style={styles.goEditText}>去添加字幕</Text>
         </Pressable>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!currentSegment) {
     return (
-      <View style={styles.loading}>
+      <SafeAreaView style={styles.loading} edges={['top']}>
         <Text style={styles.loadingText}>没有可练习的切片</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -256,8 +345,15 @@ export default function PlayerScreen() {
     answer: showAnswer ? '显示答案' : '盲听',
   };
 
+  const repeatLabel = repeatCount === 0 ? '∞' : `${currentRepeat + 1}/${repeatCount}`;
+  const pauseLabel = pauseMs === PAUSE_SENTINEL
+    ? '句长'
+    : pauseMs === 0
+      ? '不停顿'
+      : `${pauseMs / 1000}s`;
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.videoContainer}>
         <VideoView
           player={player}
@@ -287,6 +383,12 @@ export default function PlayerScreen() {
               </Text>
             </Pressable>
           )
+        )}
+        {/* 复读/暂停状态指示 */}
+        {isPausing && (
+          <Text style={styles.pauseHint}>
+            ⏳ 等待复读... 点击 ▶ 立即继续
+          </Text>
         )}
       </View>
 
@@ -331,17 +433,29 @@ export default function PlayerScreen() {
 
       {/* 设置按钮组 */}
       <View style={styles.settingsRow}>
+        {/* 复读次数 */}
         <Pressable
-          style={[styles.settingChip, isLooping && styles.chipActive]}
-          onPress={toggleLoop}
+          style={[styles.settingChip, repeatCount !== 1 && styles.chipActive]}
+          onPress={cycleRepeat}
         >
-          <Text style={[styles.chipText, isLooping && styles.chipTextActive]}>
-            {isLooping ? '循环 ✓' : '循环'}
+          <Text style={[styles.chipText, repeatCount !== 1 && styles.chipTextActive]}>
+            复读 {repeatLabel}
           </Text>
         </Pressable>
+        {/* 停顿间隔 */}
+        <Pressable
+          style={[styles.settingChip, pauseMs !== 0 && styles.chipActive]}
+          onPress={cyclePause}
+        >
+          <Text style={[styles.chipText, pauseMs !== 0 && styles.chipTextActive]}>
+            间隔 {pauseLabel}
+          </Text>
+        </Pressable>
+        {/* 变速 */}
         <Pressable style={styles.settingChip} onPress={cycleSpeed}>
           <Text style={styles.chipText}>{speed}×</Text>
         </Pressable>
+        {/* 字幕模式 */}
         <Pressable
           style={[styles.settingChip, subtitleMode !== 'english' && styles.chipActive]}
           onPress={cycleSubtitleMode}
@@ -350,6 +464,8 @@ export default function PlayerScreen() {
             {subtitleLabels[subtitleMode]}
           </Text>
         </Pressable>
+      </View>
+      <View style={styles.settingsRow}>
         {/* 回声跟读按钮 */}
         {!shadowPanelOpen && (
           <Pressable
@@ -386,7 +502,7 @@ export default function PlayerScreen() {
       <Pressable style={styles.closeBtn} onPress={() => router.back()}>
         <Text style={styles.closeBtnText}>退出练习</Text>
       </Pressable>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -423,14 +539,12 @@ function ShadowPanel({
         </Pressable>
       </View>
 
-      {/* 录音按钮 */}
       {phase === 'recording' && (
         <Pressable style={styles.recordStopBtn} onPress={onStopRecording}>
           <Text style={styles.recordStopText}>⏹ 停止录音</Text>
         </Pressable>
       )}
 
-      {/* 已有录音列表 */}
       {recordings.length > 0 && phase !== 'recording' && (
         <View style={styles.recordingList}>
           <Text style={styles.recordingListTitle}>我的录音 ({recordings.length})</Text>
@@ -476,14 +590,13 @@ function formatMs(ms: number): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bgDark,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: '#000',
   },
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.bgDark,
+    backgroundColor: '#000',
   },
   loadingText: {
     color: colors.textInverse,
@@ -506,17 +619,17 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: '#000',
+    overflow: 'hidden',
   },
   video: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
   },
   subtitleArea: {
     minHeight: 80,
     padding: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.bgDark,
+    backgroundColor: '#000',
   },
   subtitleText: {
     fontSize: fontSizes.xl,
@@ -529,6 +642,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.md,
     fontWeight: '400',
+  },
+  pauseHint: {
+    color: colors.accent,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
   },
   shadowPanel: {
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -655,7 +773,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   settingChip: {
     paddingHorizontal: spacing.md,

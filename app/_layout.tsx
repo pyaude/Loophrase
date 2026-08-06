@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useDatabase } from '../src/hooks/useDatabase';
 import { initAudioSession } from '../src/services/audioSession';
@@ -37,30 +38,32 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="auto" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="import"
-          options={{ headerShown: true, title: '导入素材', headerBackTitle: '取消' }}
-        />
-        <Stack.Screen
-          name="review"
-          options={{ headerShown: true, title: '复习', headerBackTitle: '退出' }}
-        />
-        <Stack.Screen
-          name="project/[id]"
-          options={{ headerShown: true, title: '切片编辑', headerBackTitle: '返回' }}
-        />
-        <Stack.Screen
-          name="player/[id]"
-          options={{ headerShown: false, orientation: 'landscape' }}
-        />
-        <Stack.Screen
-          name="subtitle-editor/[id]"
-          options={{ headerShown: true, title: '字幕编辑器', headerBackTitle: '返回' }}
-        />
-      </Stack>
+      <SafeAreaProvider>
+        <StatusBar style="auto" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="import"
+            options={{ headerShown: true, title: '导入素材', headerBackTitle: '取消' }}
+          />
+          <Stack.Screen
+            name="review"
+            options={{ headerShown: true, title: '复习', headerBackTitle: '退出' }}
+          />
+          <Stack.Screen
+            name="project/[id]"
+            options={{ headerShown: true, title: '切片编辑', headerBackTitle: '返回' }}
+          />
+          <Stack.Screen
+            name="player/[id]"
+            options={{ headerShown: false, orientation: 'landscape' }}
+          />
+          <Stack.Screen
+            name="subtitle-editor/[id]"
+            options={{ headerShown: true, title: '字幕编辑器', headerBackTitle: '返回' }}
+          />
+        </Stack>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
