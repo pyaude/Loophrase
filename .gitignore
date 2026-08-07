@@ -8,3 +8,5 @@
 # typescript
 *.tsbuildinfo
 .trae
+.venv
+.env

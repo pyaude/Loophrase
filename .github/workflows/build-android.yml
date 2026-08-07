@@ -91,6 +91,44 @@ jobs:
           path: output/Loophrase-*.apk
           retention-days: 30
 
+      - name: Publish to Update Server
+        if: success()
+        working-directory: .
+        env:
+          UPDATE_SERVER_URL: ${{ secrets.UPDATE_SERVER_URL }}
+          UPDATE_ADMIN_TOKEN: ${{ secrets.UPDATE_ADMIN_TOKEN }}
+          APP_VERSION: ${{ steps.version.outputs.APP_VERSION }}
+        run: |
+          if [ -z "$UPDATE_SERVER_URL" ] || [ -z "$UPDATE_ADMIN_TOKEN" ]; then
+            echo "UPDATE_SERVER_URL or UPDATE_ADMIN_TOKEN not set, skipping publish"
+            exit 0
+          fi
+
+          APK_FILE="output/Loophrase-v${APP_VERSION}.apk"
+          if [ ! -f "$APK_FILE" ]; then
+            echo "APK not found at $APK_FILE, skipping publish"
+            exit 0
+          fi
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$UPDATE_SERVER_URL/api/v1/admin/publish" \
+            -H "Authorization: Bearer $UPDATE_ADMIN_TOKEN" \
+            -F "version=$APP_VERSION" \
+            -F "platform=android" \
+            -F "changelog=Loophrase v$APP_VERSION" \
+            -F "min_required_version=0.0.0" \
+            -F "apk=@$APK_FILE")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+            echo "✅ Published v$APP_VERSION to update server"
+          elif [ "$HTTP_CODE" = "409" ]; then
+            echo "⚠️  Version v$APP_VERSION already exists on server, skipping"
+          else
+            echo "❌ Publish failed (HTTP $HTTP_CODE): $BODY"
+          fi
+
       - name: Cleanup Gradle daemon
         if: always()
         working-directory: mobile/android

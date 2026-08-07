@@ -1,4 +1,4 @@
-// 设置页：播放偏好、隐私、云同步、关于
+// 设置页：播放偏好、隐私、云同步、关于、检查更新
 
 import { useState, useCallback } from 'react';
 import {
@@ -9,15 +9,21 @@ import {
   Pressable,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
+import * as Application from 'expo-application';
 import { colors, spacing, fontSizes, radius } from '../../src/theme';
 import { isSyncAvailable, syncToCloud } from '../../src/services/sync';
 import { trackEvent } from '../../src/services/analytics';
+import { useUpdateStore } from '../../src/store/updateStore';
 
 export default function SettingsScreen() {
   const [autoSkipNonSpeech, setAutoSkipNonSpeech] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const syncOn = isSyncAvailable();
+
+  const appVersion = Application.nativeApplicationVersion ?? '0.0.0';
+  const { checkManually, checking: checkingUpdate } = useUpdateStore();
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
@@ -32,6 +38,18 @@ export default function SettingsScreen() {
       Alert.alert('同步成功', `已同步 ${result.synced} 条记录`);
     }
   }, []);
+
+  const handleCheckUpdate = useCallback(async () => {
+    try {
+      const result = await checkManually();
+      if (!result || !result.has_update) {
+        Alert.alert('已是最新版本', `当前版本 v${appVersion}`);
+      }
+      // 有更新时，UpdateModal 会由全局 store 驱动弹出
+    } catch {
+      Alert.alert('检查失败', '无法连接到更新服务器，请稍后重试');
+    }
+  }, [appVersion, checkManually]);
 
   return (
     <ScrollView
@@ -91,8 +109,22 @@ export default function SettingsScreen() {
       {/* 关于 */}
       <Text style={styles.sectionTitle}>关于</Text>
       <View style={styles.group}>
-        <SettingRow label="版本" value="0.1.0 (MVP)" />
+        <SettingRow label="版本" value={`v${appVersion}`} />
         <SettingRow label="学习方法" value="100LS 精练法" />
+        <Pressable
+          style={styles.updateButton}
+          onPress={handleCheckUpdate}
+          disabled={checkingUpdate}
+        >
+          {checkingUpdate ? (
+            <View style={styles.updateButtonContent}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.updateButtonText}>检查中...</Text>
+            </View>
+          ) : (
+            <Text style={styles.updateButtonText}>检查更新</Text>
+          )}
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -169,6 +201,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   syncButtonText: {
+    color: colors.primary,
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+  },
+  updateButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  updateButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  updateButtonText: {
     color: colors.primary,
     fontSize: fontSizes.md,
     fontWeight: '600',

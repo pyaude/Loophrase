@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+apks/
+data/
+.env
+.pytest_cache/

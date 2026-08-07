@@ -1,4 +1,4 @@
-// 根布局：初始化数据库、音频会话、设置 Stack 导航
+// 根布局：初始化数据库、音频会话、设置 Stack 导航、启动时检查更新
 
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
@@ -8,10 +8,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useDatabase } from '../src/hooks/useDatabase';
 import { initAudioSession } from '../src/services/audioSession';
+import { useUpdateStore } from '../src/store/updateStore';
+import { UpdateModal } from '../src/components/UpdateModal';
 import { colors } from '../src/theme';
 
 export default function RootLayout() {
   const { isLoading, error } = useDatabase();
+  const { updateInfo, dismiss, checkAuto, autoChecked } = useUpdateStore();
 
   // 初始化音频会话
   useEffect(() => {
@@ -19,6 +22,14 @@ export default function RootLayout() {
       // 忽略初始化失败（如模拟器不支持）
     });
   }, []);
+
+  // 启动后延迟检查更新
+  useEffect(() => {
+    if (!autoChecked) {
+      const timer = setTimeout(() => checkAuto(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [autoChecked, checkAuto]);
 
   if (isLoading) {
     return (
@@ -63,6 +74,8 @@ export default function RootLayout() {
             options={{ headerShown: true, title: '字幕编辑器', headerBackTitle: '返回' }}
           />
         </Stack>
+        {/* 全局更新弹窗 */}
+        <UpdateModal info={updateInfo} onClose={dismiss} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

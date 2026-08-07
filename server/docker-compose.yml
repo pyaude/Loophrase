@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  update-server:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apks:/app/apks
+      - ./data:/app/data
+    environment:
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-changeme}
+    restart: unless-stopped
