@@ -1,6 +1,6 @@
 {
   "name": "loophrase",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "^57.0.8",
