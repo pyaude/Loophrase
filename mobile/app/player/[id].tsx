@@ -62,6 +62,7 @@ export default function PlayerScreen() {
   const [lastMark, setLastMark] = useState<MarkType | null>(null);
   const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
   const [statsMap, setStatsMap] = useState<Record<string, { listen_count: number; read_count: number }>>({});
+  const [controlsVisible, setControlsVisible] = useState(true);
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
@@ -78,6 +79,33 @@ export default function PlayerScreen() {
   const segmentsRef = useRef<Segment[]>([]);
   const currentIndexRef = useRef(0);
   const listenCountedRef = useRef(false);
+  const hideControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const CONTROLS_HIDE_DELAY = 4000; // 4 秒后自动隐藏
+
+  const showControlsTemporarily = useCallback(() => {
+    setControlsVisible(true);
+    if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+    hideControlsTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, CONTROLS_HIDE_DELAY);
+  }, []);
+
+  // 跟读面板或等待复读状态时保持显示
+  useEffect(() => {
+    if (shadowPanelOpen || isPausing) {
+      setControlsVisible(true);
+      if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+    } else {
+      showControlsTemporarily();
+    }
+  }, [shadowPanelOpen, isPausing, showControlsTemporarily]);
+
+  useEffect(() => {
+    return () => {
+      if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => { repeatCountRef.current = repeatCount; }, [repeatCount]);
   useEffect(() => { pauseMsRef.current = pauseMs; }, [pauseMs]);
@@ -243,6 +271,17 @@ export default function PlayerScreen() {
       if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
     };
   }, []);
+
+  const toggleControls = useCallback(() => {
+    setControlsVisible((prev) => {
+      if (prev) {
+        if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+        return false;
+      }
+      showControlsTemporarily();
+      return true;
+    });
+  }, [showControlsTemporarily]);
 
   const togglePlay = useCallback(() => {
     // 如果在暂停等待中，点击播放立即跳过等待
@@ -419,29 +458,27 @@ export default function PlayerScreen() {
       </View>
 
       {isLandscape ? (
-        <View style={styles.landscapeOverlay}>
+        <Pressable style={styles.landscapeOverlay} onPress={toggleControls}>
           {/* 字幕区域 - 横屏 */}
           <View style={styles.landscapeSubtitleArea}>
-            {subtitleMode === 'english' && (
+            {controlsVisible && subtitleMode === 'english' && (
               <Text style={styles.subtitleText}>{currentSegment.text}</Text>
             )}
-            {subtitleMode === 'hidden' && (
+            {controlsVisible && subtitleMode === 'hidden' && (
               <Text style={[styles.subtitleText, styles.subtitleMuted]}>
                 （盲听模式）
               </Text>
             )}
-            {subtitleMode === 'answer' && (
+            {controlsVisible && subtitleMode === 'answer' && (
               showAnswer ? (
                 <Text style={styles.subtitleText}>{currentSegment.text}</Text>
               ) : (
-                <Pressable onPress={() => setShowAnswer(true)}>
-                  <Text style={[styles.subtitleText, styles.subtitleMuted]}>
-                    👆 点击显示答案
-                  </Text>
-                </Pressable>
+                <Text style={[styles.subtitleText, styles.subtitleMuted]}>
+                  👆 点击显示答案
+                </Text>
               )
             )}
-            {isPausing && (
+            {controlsVisible && isPausing && (
               <Text style={styles.pauseHint}>
                 ⏳ 等待复读... 点击 ▶ 立即继续
               </Text>
@@ -449,94 +486,96 @@ export default function PlayerScreen() {
           </View>
 
           {/* 横屏控制栏 */}
-          <View style={styles.landscapeControls}>
-            <View style={styles.segmentInfo}>
-              <Text style={styles.segmentIndex}>
-                {currentIndex + 1}/{segments.length}
-              </Text>
-              <Text style={styles.segmentStats}>
-                👂 {(statsMap[currentSegment.id]?.listen_count ?? 0)} · 🎙 {(statsMap[currentSegment.id]?.read_count ?? 0)}
-              </Text>
-              <Text style={styles.segmentTime}>
-                {formatMs(currentSegment.start_ms)} - {formatMs(currentSegment.end_ms)}
-              </Text>
-            </View>
-            <View style={styles.controlsRow}>
-              <Pressable style={styles.controlBtn} onPress={goPrev} disabled={currentIndex === 0}>
-                <Text style={[styles.controlBtnText, currentIndex === 0 && styles.disabled]}>⏮</Text>
-              </Pressable>
-              <Pressable style={styles.playBtn} onPress={togglePlay}>
-                <Text style={styles.playBtnText}>{player.playing ? '⏸' : '▶'}</Text>
-              </Pressable>
-              <Pressable
-                style={styles.controlBtn}
-                onPress={goNext}
-                disabled={currentIndex === segments.length - 1}
-              >
-                <Text style={[styles.controlBtnText, currentIndex === segments.length - 1 && styles.disabled]}>⏭</Text>
-              </Pressable>
-            </View>
-            <View style={styles.settingsRow}>
-              <Pressable
-                style={[styles.settingChip, repeatCount !== 1 && styles.chipActive]}
-                onPress={cycleRepeat}
-              >
-                <Text style={[styles.chipText, repeatCount !== 1 && styles.chipTextActive]}>
-                  复读 {repeatLabel}
+          {controlsVisible && (
+            <View style={styles.landscapeControls}>
+              <View style={styles.segmentInfo}>
+                <Text style={styles.segmentIndex}>
+                  {currentIndex + 1}/{segments.length}
                 </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.settingChip, pauseMs !== 0 && styles.chipActive]}
-                onPress={cyclePause}
-              >
-                <Text style={[styles.chipText, pauseMs !== 0 && styles.chipTextActive]}>
-                  间隔 {pauseLabel}
+                <Text style={styles.segmentStats}>
+                  👂 {(statsMap[currentSegment.id]?.listen_count ?? 0)} · 🎙 {(statsMap[currentSegment.id]?.read_count ?? 0)}
                 </Text>
-              </Pressable>
-              <Pressable style={styles.settingChip} onPress={cycleSpeed}>
-                <Text style={styles.chipText}>{speed}×</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.settingChip, subtitleMode !== 'english' && styles.chipActive]}
-                onPress={cycleSubtitleMode}
-              >
-                <Text style={[styles.chipText, subtitleMode !== 'english' && styles.chipTextActive]}>
-                  {subtitleLabels[subtitleMode]}
+                <Text style={styles.segmentTime}>
+                  {formatMs(currentSegment.start_ms)} - {formatMs(currentSegment.end_ms)}
                 </Text>
-              </Pressable>
-              {!shadowPanelOpen && (
-                <Pressable
-                  style={[styles.settingChip, styles.shadowChip]}
-                  onPress={handleStartShadow}
-                >
-                  <Text style={[styles.chipText, { fontWeight: '600' }]}>🎙 跟读</Text>
+              </View>
+              <View style={styles.controlsRow}>
+                <Pressable style={styles.controlBtn} onPress={goPrev} disabled={currentIndex === 0}>
+                  <Text style={[styles.controlBtnText, currentIndex === 0 && styles.disabled]}>⏮</Text>
                 </Pressable>
-              )}
+                <Pressable style={styles.playBtn} onPress={togglePlay}>
+                  <Text style={styles.playBtnText}>{player.playing ? '⏸' : '▶'}</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.controlBtn}
+                  onPress={goNext}
+                  disabled={currentIndex === segments.length - 1}
+                >
+                  <Text style={[styles.controlBtnText, currentIndex === segments.length - 1 && styles.disabled]}>⏭</Text>
+                </Pressable>
+              </View>
+              <View style={styles.settingsRow}>
+                <Pressable
+                  style={[styles.settingChip, repeatCount !== 1 && styles.chipActive]}
+                  onPress={cycleRepeat}
+                >
+                  <Text style={[styles.chipText, repeatCount !== 1 && styles.chipTextActive]}>
+                    复读 {repeatLabel}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.settingChip, pauseMs !== 0 && styles.chipActive]}
+                  onPress={cyclePause}
+                >
+                  <Text style={[styles.chipText, pauseMs !== 0 && styles.chipTextActive]}>
+                    间隔 {pauseLabel}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.settingChip} onPress={cycleSpeed}>
+                  <Text style={styles.chipText}>{speed}×</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.settingChip, subtitleMode !== 'english' && styles.chipActive]}
+                  onPress={cycleSubtitleMode}
+                >
+                  <Text style={[styles.chipText, subtitleMode !== 'english' && styles.chipTextActive]}>
+                    {subtitleLabels[subtitleMode]}
+                  </Text>
+                </Pressable>
+                {!shadowPanelOpen && (
+                  <Pressable
+                    style={[styles.settingChip, styles.shadowChip]}
+                    onPress={handleStartShadow}
+                  >
+                    <Text style={[styles.chipText, { fontWeight: '600' }]}>🎙 跟读</Text>
+                  </Pressable>
+                )}
+              </View>
+              <View style={styles.landscapeMarkRow}>
+                <Pressable
+                  style={[styles.markBtn, { backgroundColor: colors.warning }, lastMark === 'understood' && styles.markBtnActive]}
+                  onPress={() => handleMark('understood')}
+                >
+                  <Text style={styles.markBtnText}>没听懂</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.markBtn, { backgroundColor: colors.stateDue }, lastMark === 'not_smooth' && styles.markBtnActive]}
+                  onPress={() => handleMark('not_smooth')}
+                >
+                  <Text style={styles.markBtnText}>没说顺</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.markBtn, { backgroundColor: colors.success }, lastMark === 'mastered' && styles.markBtnActive]}
+                  onPress={() => handleMark('mastered')}
+                >
+                  <Text style={styles.markBtnText}>已掌握</Text>
+                </Pressable>
+              </View>
+              <Pressable style={styles.closeBtn} onPress={() => router.back()}>
+                <Text style={styles.closeBtnText}>退出练习</Text>
+              </Pressable>
             </View>
-            <View style={styles.landscapeMarkRow}>
-              <Pressable
-                style={[styles.markBtn, { backgroundColor: colors.warning }, lastMark === 'understood' && styles.markBtnActive]}
-                onPress={() => handleMark('understood')}
-              >
-                <Text style={styles.markBtnText}>没听懂</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.markBtn, { backgroundColor: colors.stateDue }, lastMark === 'not_smooth' && styles.markBtnActive]}
-                onPress={() => handleMark('not_smooth')}
-              >
-                <Text style={styles.markBtnText}>没说顺</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.markBtn, { backgroundColor: colors.success }, lastMark === 'mastered' && styles.markBtnActive]}
-                onPress={() => handleMark('mastered')}
-              >
-                <Text style={styles.markBtnText}>已掌握</Text>
-              </Pressable>
-            </View>
-            <Pressable style={styles.closeBtn} onPress={() => router.back()}>
-              <Text style={styles.closeBtnText}>退出练习</Text>
-            </Pressable>
-          </View>
+          )}
 
           {/* 跟读面板 */}
           {shadowPanelOpen && (
@@ -549,37 +588,34 @@ export default function PlayerScreen() {
               onDeleteRecording={shadow.deleteRecording}
             />
           )}
-        </View>
+        </Pressable>
       ) : (
         <SafeAreaView style={styles.portraitContent} edges={['top', 'bottom']}>
           {/* 字幕区域 */}
-          <View style={styles.subtitleArea}>
-            {subtitleMode === 'english' && (
+          <Pressable style={styles.subtitleArea} onPress={toggleControls}>
+            {controlsVisible && subtitleMode === 'english' && (
               <Text style={styles.subtitleText}>{currentSegment.text}</Text>
             )}
-            {subtitleMode === 'hidden' && (
+            {controlsVisible && subtitleMode === 'hidden' && (
               <Text style={[styles.subtitleText, styles.subtitleMuted]}>
                 （盲听模式）
               </Text>
             )}
-            {subtitleMode === 'answer' && (
+            {controlsVisible && subtitleMode === 'answer' && (
               showAnswer ? (
                 <Text style={styles.subtitleText}>{currentSegment.text}</Text>
               ) : (
-                <Pressable onPress={() => setShowAnswer(true)}>
-                  <Text style={[styles.subtitleText, styles.subtitleMuted]}>
-                    👆 点击显示答案
-                  </Text>
-                </Pressable>
+                <Text style={[styles.subtitleText, styles.subtitleMuted]}>
+                  👆 点击显示答案
+                </Text>
               )
             )}
-            {/* 复读/暂停状态指示 */}
-            {isPausing && (
+            {controlsVisible && isPausing && (
               <Text style={styles.pauseHint}>
                 ⏳ 等待复读... 点击 ▶ 立即继续
               </Text>
             )}
-          </View>
+          </Pressable>
 
           {/* 跟读面板 */}
           {shadowPanelOpen && (
@@ -593,107 +629,111 @@ export default function PlayerScreen() {
             />
           )}
 
-          {/* 切片信息 */}
-          <View style={styles.segmentInfo}>
-            <Text style={styles.segmentIndex}>
-              第 {currentIndex + 1} / {segments.length} 句
-            </Text>
-            <Text style={styles.segmentStats}>
-              👂 {statsMap[currentSegment.id]?.listen_count ?? 0} 次听 · 🎙 {statsMap[currentSegment.id]?.read_count ?? 0} 次读
-            </Text>
-            <Text style={styles.segmentTime}>
-              {formatMs(currentSegment.start_ms)} - {formatMs(currentSegment.end_ms)}
-            </Text>
-          </View>
+          {controlsVisible && (
+            <>
+              {/* 切片信息 */}
+              <View style={styles.segmentInfo}>
+                <Text style={styles.segmentIndex}>
+                  第 {currentIndex + 1} / {segments.length} 句
+                </Text>
+                <Text style={styles.segmentStats}>
+                  👂 {statsMap[currentSegment.id]?.listen_count ?? 0} 次听 · 🎙 {statsMap[currentSegment.id]?.read_count ?? 0} 次读
+                </Text>
+                <Text style={styles.segmentTime}>
+                  {formatMs(currentSegment.start_ms)} - {formatMs(currentSegment.end_ms)}
+                </Text>
+              </View>
 
-          {/* 播放控制 */}
-          <View style={styles.controlsRow}>
-            <Pressable style={styles.controlBtn} onPress={goPrev} disabled={currentIndex === 0}>
-              <Text style={[styles.controlBtnText, currentIndex === 0 && styles.disabled]}>⏮</Text>
-            </Pressable>
-            <Pressable style={styles.playBtn} onPress={togglePlay}>
-              <Text style={styles.playBtnText}>{player.playing ? '⏸' : '▶'}</Text>
-            </Pressable>
-            <Pressable
-              style={styles.controlBtn}
-              onPress={goNext}
-              disabled={currentIndex === segments.length - 1}
-            >
-              <Text style={[styles.controlBtnText, currentIndex === segments.length - 1 && styles.disabled]}>⏭</Text>
-            </Pressable>
-          </View>
+              {/* 播放控制 */}
+              <View style={styles.controlsRow}>
+                <Pressable style={styles.controlBtn} onPress={goPrev} disabled={currentIndex === 0}>
+                  <Text style={[styles.controlBtnText, currentIndex === 0 && styles.disabled]}>⏮</Text>
+                </Pressable>
+                <Pressable style={styles.playBtn} onPress={togglePlay}>
+                  <Text style={styles.playBtnText}>{player.playing ? '⏸' : '▶'}</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.controlBtn}
+                  onPress={goNext}
+                  disabled={currentIndex === segments.length - 1}
+                >
+                  <Text style={[styles.controlBtnText, currentIndex === segments.length - 1 && styles.disabled]}>⏭</Text>
+                </Pressable>
+              </View>
 
-          {/* 设置按钮组 */}
-          <View style={styles.settingsRow}>
-            {/* 复读次数 */}
-            <Pressable
-              style={[styles.settingChip, repeatCount !== 1 && styles.chipActive]}
-              onPress={cycleRepeat}
-            >
-              <Text style={[styles.chipText, repeatCount !== 1 && styles.chipTextActive]}>
-                复读 {repeatLabel}
-              </Text>
-            </Pressable>
-            {/* 停顿间隔 */}
-            <Pressable
-              style={[styles.settingChip, pauseMs !== 0 && styles.chipActive]}
-              onPress={cyclePause}
-            >
-              <Text style={[styles.chipText, pauseMs !== 0 && styles.chipTextActive]}>
-                间隔 {pauseLabel}
-              </Text>
-            </Pressable>
-            {/* 变速 */}
-            <Pressable style={styles.settingChip} onPress={cycleSpeed}>
-              <Text style={styles.chipText}>{speed}×</Text>
-            </Pressable>
-            {/* 字幕模式 */}
-            <Pressable
-              style={[styles.settingChip, subtitleMode !== 'english' && styles.chipActive]}
-              onPress={cycleSubtitleMode}
-            >
-              <Text style={[styles.chipText, subtitleMode !== 'english' && styles.chipTextActive]}>
-                {subtitleLabels[subtitleMode]}
-              </Text>
-            </Pressable>
-          </View>
-          <View style={styles.settingsRow}>
-            {/* 回声跟读按钮 */}
-            {!shadowPanelOpen && (
-              <Pressable
-                style={[styles.settingChip, styles.shadowChip]}
-                onPress={handleStartShadow}
-              >
-                <Text style={[styles.chipText, { fontWeight: '600' }]}>🎙 跟读</Text>
+              {/* 设置按钮组 */}
+              <View style={styles.settingsRow}>
+                {/* 复读次数 */}
+                <Pressable
+                  style={[styles.settingChip, repeatCount !== 1 && styles.chipActive]}
+                  onPress={cycleRepeat}
+                >
+                  <Text style={[styles.chipText, repeatCount !== 1 && styles.chipTextActive]}>
+                    复读 {repeatLabel}
+                  </Text>
+                </Pressable>
+                {/* 停顿间隔 */}
+                <Pressable
+                  style={[styles.settingChip, pauseMs !== 0 && styles.chipActive]}
+                  onPress={cyclePause}
+                >
+                  <Text style={[styles.chipText, pauseMs !== 0 && styles.chipTextActive]}>
+                    间隔 {pauseLabel}
+                  </Text>
+                </Pressable>
+                {/* 变速 */}
+                <Pressable style={styles.settingChip} onPress={cycleSpeed}>
+                  <Text style={styles.chipText}>{speed}×</Text>
+                </Pressable>
+                {/* 字幕模式 */}
+                <Pressable
+                  style={[styles.settingChip, subtitleMode !== 'english' && styles.chipActive]}
+                  onPress={cycleSubtitleMode}
+                >
+                  <Text style={[styles.chipText, subtitleMode !== 'english' && styles.chipTextActive]}>
+                    {subtitleLabels[subtitleMode]}
+                  </Text>
+                </Pressable>
+              </View>
+              <View style={styles.settingsRow}>
+                {/* 回声跟读按钮 */}
+                {!shadowPanelOpen && (
+                  <Pressable
+                    style={[styles.settingChip, styles.shadowChip]}
+                    onPress={handleStartShadow}
+                  >
+                    <Text style={[styles.chipText, { fontWeight: '600' }]}>🎙 跟读</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {/* 标记按钮组 */}
+              <View style={styles.markRow}>
+                <Pressable
+                  style={[styles.markBtn, { backgroundColor: colors.warning }, lastMark === 'understood' && styles.markBtnActive]}
+                  onPress={() => handleMark('understood')}
+                >
+                  <Text style={styles.markBtnText}>没听懂</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.markBtn, { backgroundColor: colors.stateDue }, lastMark === 'not_smooth' && styles.markBtnActive]}
+                  onPress={() => handleMark('not_smooth')}
+                >
+                  <Text style={styles.markBtnText}>没说顺</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.markBtn, { backgroundColor: colors.success }, lastMark === 'mastered' && styles.markBtnActive]}
+                  onPress={() => handleMark('mastered')}
+                >
+                  <Text style={styles.markBtnText}>已掌握</Text>
+                </Pressable>
+              </View>
+
+              <Pressable style={styles.closeBtn} onPress={() => router.back()}>
+                <Text style={styles.closeBtnText}>退出练习</Text>
               </Pressable>
-            )}
-          </View>
-
-          {/* 标记按钮组 */}
-          <View style={styles.markRow}>
-            <Pressable
-              style={[styles.markBtn, { backgroundColor: colors.warning }, lastMark === 'understood' && styles.markBtnActive]}
-              onPress={() => handleMark('understood')}
-            >
-              <Text style={styles.markBtnText}>没听懂</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.markBtn, { backgroundColor: colors.stateDue }, lastMark === 'not_smooth' && styles.markBtnActive]}
-              onPress={() => handleMark('not_smooth')}
-            >
-              <Text style={styles.markBtnText}>没说顺</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.markBtn, { backgroundColor: colors.success }, lastMark === 'mastered' && styles.markBtnActive]}
-              onPress={() => handleMark('mastered')}
-            >
-              <Text style={styles.markBtnText}>已掌握</Text>
-            </Pressable>
-          </View>
-
-          <Pressable style={styles.closeBtn} onPress={() => router.back()}>
-            <Text style={styles.closeBtnText}>退出练习</Text>
-          </Pressable>
+            </>
+          )}
         </SafeAreaView>
       )}
     </View>
