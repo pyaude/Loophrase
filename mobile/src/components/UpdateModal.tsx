@@ -9,7 +9,7 @@ import {
   Pressable,
   ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, fontSizes, radius } from '../theme';
+import { colors, spacing, fontSizes, radius, shadows } from '../theme';
 import { downloadAndInstall, type UpdateCheckResult } from '../services/update';
 
 interface UpdateModalProps {
