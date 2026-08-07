@@ -1,14 +1,19 @@
 """应用配置。
 
-所有配置项优先从环境变量读取，未设置时使用默认值。
+启动时自动加载 .env 文件，所有配置项优先从环境变量读取，未设置时使用默认值。
 存储路径基于本文件位置计算，确保始终相对于 server/ 项目目录。
 """
 
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # server/ 根目录（server/app/config.py -> server/）
 SERVER_ROOT = Path(__file__).resolve().parent.parent
+
+# 加载 .env 文件（Docker 部署时由 compose 注入环境变量，load_dotenv 不会覆盖）
+load_dotenv(SERVER_ROOT / ".env")
 
 # 默认存储位置：server/apks 与 server/data/versions.db
 _DEFAULT_APK_DIR = SERVER_ROOT / "apks"
