@@ -63,6 +63,7 @@ export default function PlayerScreen() {
   const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
   const [statsMap, setStatsMap] = useState<Record<string, { listen_count: number; read_count: number }>>({});
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [alwaysShowSubtitle, setAlwaysShowSubtitle] = useState(true);
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
@@ -438,6 +439,8 @@ export default function PlayerScreen() {
       ? '不停顿'
       : `${pauseMs / 1000}s`;
 
+  const subtitleVisible = alwaysShowSubtitle || controlsVisible;
+
   return (
     <View style={styles.container}>
       <StatusBar hidden={isLandscape} />
@@ -461,15 +464,15 @@ export default function PlayerScreen() {
         <Pressable style={styles.landscapeOverlay} onPress={toggleControls}>
           {/* 字幕区域 - 横屏 */}
           <View style={styles.landscapeSubtitleArea}>
-            {controlsVisible && subtitleMode === 'english' && (
+            {subtitleVisible && subtitleMode === 'english' && (
               <Text style={styles.subtitleText}>{currentSegment.text}</Text>
             )}
-            {controlsVisible && subtitleMode === 'hidden' && (
+            {subtitleVisible && subtitleMode === 'hidden' && (
               <Text style={[styles.subtitleText, styles.subtitleMuted]}>
                 （盲听模式）
               </Text>
             )}
-            {controlsVisible && subtitleMode === 'answer' && (
+            {subtitleVisible && subtitleMode === 'answer' && (
               showAnswer ? (
                 <Text style={styles.subtitleText}>{currentSegment.text}</Text>
               ) : (
@@ -478,7 +481,7 @@ export default function PlayerScreen() {
                 </Text>
               )
             )}
-            {controlsVisible && isPausing && (
+            {subtitleVisible && isPausing && (
               <Text style={styles.pauseHint}>
                 ⏳ 等待复读... 点击 ▶ 立即继续
               </Text>
@@ -542,6 +545,14 @@ export default function PlayerScreen() {
                     {subtitleLabels[subtitleMode]}
                   </Text>
                 </Pressable>
+                <Pressable
+                  style={[styles.settingChip, alwaysShowSubtitle && styles.chipActive]}
+                  onPress={() => setAlwaysShowSubtitle((v) => !v)}
+                >
+                  <Text style={[styles.chipText, alwaysShowSubtitle && styles.chipTextActive]}>
+                    字幕{alwaysShowSubtitle ? '常驻' : '跟随'}
+                  </Text>
+                </Pressable>
                 {!shadowPanelOpen && (
                   <Pressable
                     style={[styles.settingChip, styles.shadowChip]}
@@ -593,15 +604,15 @@ export default function PlayerScreen() {
         <SafeAreaView style={styles.portraitContent} edges={['top', 'bottom']}>
           {/* 字幕区域 */}
           <Pressable style={styles.subtitleArea} onPress={toggleControls}>
-            {controlsVisible && subtitleMode === 'english' && (
+            {subtitleVisible && subtitleMode === 'english' && (
               <Text style={styles.subtitleText}>{currentSegment.text}</Text>
             )}
-            {controlsVisible && subtitleMode === 'hidden' && (
+            {subtitleVisible && subtitleMode === 'hidden' && (
               <Text style={[styles.subtitleText, styles.subtitleMuted]}>
                 （盲听模式）
               </Text>
             )}
-            {controlsVisible && subtitleMode === 'answer' && (
+            {subtitleVisible && subtitleMode === 'answer' && (
               showAnswer ? (
                 <Text style={styles.subtitleText}>{currentSegment.text}</Text>
               ) : (
@@ -610,7 +621,7 @@ export default function PlayerScreen() {
                 </Text>
               )
             )}
-            {controlsVisible && isPausing && (
+            {subtitleVisible && isPausing && (
               <Text style={styles.pauseHint}>
                 ⏳ 等待复读... 点击 ▶ 立即继续
               </Text>
@@ -692,6 +703,15 @@ export default function PlayerScreen() {
                 >
                   <Text style={[styles.chipText, subtitleMode !== 'english' && styles.chipTextActive]}>
                     {subtitleLabels[subtitleMode]}
+                  </Text>
+                </Pressable>
+                {/* 字幕常驻开关 */}
+                <Pressable
+                  style={[styles.settingChip, alwaysShowSubtitle && styles.chipActive]}
+                  onPress={() => setAlwaysShowSubtitle((v) => !v)}
+                >
+                  <Text style={[styles.chipText, alwaysShowSubtitle && styles.chipTextActive]}>
+                    字幕{alwaysShowSubtitle ? '常驻' : '跟随'}
                   </Text>
                 </Pressable>
               </View>
