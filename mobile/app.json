@@ -19,14 +19,18 @@
       },
       "predictiveBackGestureEnabled": true,
       "ndk": {
-        "abiFilters": ["arm64-v8a", "armeabi-v7a"]
+        "abiFilters": [
+          "arm64-v8a",
+          "armeabi-v7a"
+        ]
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-navigation-bar"
     ]
   }
 }

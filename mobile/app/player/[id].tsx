@@ -14,7 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { NavigationBar } from 'expo-navigation-bar';
 import { useEventListener } from 'expo';
+import { Platform } from 'react-native';
 import { getDatabase } from '../../src/db/client';
 import {
   getProjectById,
@@ -360,6 +362,7 @@ export default function PlayerScreen() {
   return (
     <View style={styles.container}>
       <StatusBar hidden={isLandscape} />
+      {Platform.OS === 'android' && <NavigationBar hidden={isLandscape} style="light" />}
       <View
         style={
           isLandscape
@@ -371,7 +374,7 @@ export default function PlayerScreen() {
           player={player}
           style={styles.video}
           nativeControls={false}
-          contentFit={isLandscape ? 'cover' : 'contain'}
+          contentFit="contain"
         />
       </View>
 
