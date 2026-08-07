@@ -18,6 +18,8 @@ type SegmentRow = {
   due_at: number;
   interval_days: number;
   review_count: number;
+  listen_count: number;
+  read_count: number;
   updated_at: number;
 };
 
@@ -28,6 +30,8 @@ function mapRow(row: SegmentRow): ReviewSchedule {
     due_at: row.due_at,
     interval_days: row.interval_days,
     review_count: row.review_count,
+    listen_count: row.listen_count ?? 0,
+    read_count: row.read_count ?? 0,
     updated_at: row.updated_at,
   };
 }
@@ -51,17 +55,21 @@ export async function ensureReviewSchedule(
     due_at: now,
     interval_days: 0,
     review_count: 0,
+    listen_count: 0,
+    read_count: 0,
     updated_at: now,
   };
 
   await db.runAsync(
-    `INSERT INTO review_schedule (segment_id, state, due_at, interval_days, review_count, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO review_schedule (segment_id, state, due_at, interval_days, review_count, listen_count, read_count, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     schedule.segment_id,
     schedule.state,
     schedule.due_at,
     schedule.interval_days,
     schedule.review_count,
+    0,
+    0,
     schedule.updated_at,
   );
 
@@ -179,4 +187,48 @@ export async function getReviewStats(db: SQLiteDatabase): Promise<{
     practicingCount: practicing?.count ?? 0,
     masteredCount: mastered?.count ?? 0,
   };
+}
+
+/** 增加一句的听次数（确保行存在后自增） */
+export async function incrementListenCount(
+  db: SQLiteDatabase,
+  segmentId: string,
+): Promise<void> {
+  await ensureReviewSchedule(db, segmentId);
+  await db.runAsync(
+    `UPDATE review_schedule SET listen_count = listen_count + 1, updated_at = ? WHERE segment_id = ?`,
+    Date.now(),
+    segmentId,
+  );
+}
+
+/** 增加一句的读次数（确保行存在后自增） */
+export async function incrementReadCount(
+  db: SQLiteDatabase,
+  segmentId: string,
+): Promise<void> {
+  await ensureReviewSchedule(db, segmentId);
+  await db.runAsync(
+    `UPDATE review_schedule SET read_count = read_count + 1, updated_at = ? WHERE segment_id = ?`,
+    Date.now(),
+    segmentId,
+  );
+}
+
+/** 批量获取多个切片的听/读次数 */
+export async function getSegmentStats(
+  db: SQLiteDatabase,
+  segmentIds: string[],
+): Promise<Record<string, { listen_count: number; read_count: number }>> {
+  if (segmentIds.length === 0) return {};
+  const placeholders = segmentIds.map(() => '?').join(',');
+  const rows = await db.getAllAsync<{ segment_id: string; listen_count: number; read_count: number }>(
+    `SELECT segment_id, listen_count, read_count FROM review_schedule WHERE segment_id IN (${placeholders})`,
+    ...segmentIds,
+  );
+  const map: Record<string, { listen_count: number; read_count: number }> = {};
+  for (const row of rows) {
+    map[row.segment_id] = { listen_count: row.listen_count, read_count: row.read_count };
+  }
+  return map;
 }

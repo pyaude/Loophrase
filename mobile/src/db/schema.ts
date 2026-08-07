@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS review_schedule (
   due_at         INTEGER NOT NULL,
   interval_days  INTEGER NOT NULL DEFAULT 0,
   review_count   INTEGER NOT NULL DEFAULT 0,
+  listen_count   INTEGER NOT NULL DEFAULT 0,
+  read_count     INTEGER NOT NULL DEFAULT 0,
   updated_at     INTEGER NOT NULL
 );
 

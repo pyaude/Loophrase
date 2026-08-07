@@ -21,6 +21,14 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   // 执行建表语句
   await db.execAsync(SCHEMA_SQL);
 
+  // Migration: 旧库缺少 listen_count / read_count 列
+  await db.execAsync(`
+    ALTER TABLE review_schedule ADD COLUMN listen_count INTEGER NOT NULL DEFAULT 0;
+  `).catch(() => {});
+  await db.execAsync(`
+    ALTER TABLE review_schedule ADD COLUMN read_count INTEGER NOT NULL DEFAULT 0;
+  `).catch(() => {});
+
   dbInstance = db;
   return db;
 }

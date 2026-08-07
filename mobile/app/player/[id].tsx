@@ -23,6 +23,9 @@ import {
   getSegmentsByProject,
   markResult,
   createAttempt,
+  incrementListenCount,
+  incrementReadCount,
+  getSegmentStats,
 } from '../../src/db/repositories';
 import type { MediaProject, Segment } from '../../src/db/types';
 import { colors, spacing, fontSizes, fontWeights, radius } from '../../src/theme';
@@ -56,6 +59,7 @@ export default function PlayerScreen() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [lastMark, setLastMark] = useState<MarkType | null>(null);
   const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
+  const [statsMap, setStatsMap] = useState<Record<string, { listen_count: number; read_count: number }>>({});
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
@@ -71,6 +75,7 @@ export default function PlayerScreen() {
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const segmentsRef = useRef<Segment[]>([]);
   const currentIndexRef = useRef(0);
+  const listenCountedRef = useRef(false);
 
   useEffect(() => { repeatCountRef.current = repeatCount; }, [repeatCount]);
   useEffect(() => { pauseMsRef.current = pauseMs; }, [pauseMs]);
@@ -96,6 +101,7 @@ export default function PlayerScreen() {
       setIsPausing(false);
       currentRepeatRef.current = 0;
       setCurrentRepeat(0);
+      listenCountedRef.current = false;
 
       const seekMs = Math.max(0, seg.start_ms - LEAD_IN_MS);
       player.currentTime = seekMs / 1000;
@@ -119,6 +125,9 @@ export default function PlayerScreen() {
     setProject(proj);
     setSegments(segs);
     segmentsRef.current = segs;
+    // 加载听/读次数统计
+    const stats = await getSegmentStats(db, segs.map((s) => s.id));
+    setStatsMap(stats);
     if (proj && segs.length > 0) {
       currentRepeatRef.current = 0;
       setCurrentRepeat(0);
@@ -154,6 +163,20 @@ export default function PlayerScreen() {
     const currentTimeMs = event.currentTime * 1000;
     const endWithBuffer = seg.end_ms + LEAD_OUT_MS;
 
+    // 统计听次数：每播完一句 +1（每次从头播放只计一次）
+    if (currentTimeMs >= seg.end_ms && !listenCountedRef.current) {
+      listenCountedRef.current = true;
+      getDatabase().then((db) => incrementListenCount(db, seg.id)).then(() => {
+        setStatsMap((prev) => ({
+          ...prev,
+          [seg.id]: {
+            listen_count: (prev[seg.id]?.listen_count ?? 0) + 1,
+            read_count: prev[seg.id]?.read_count ?? 0,
+          },
+        }));
+      });
+    }
+
     // 回声跟读模式
     if (shadow.phase === 'playing_source' && currentTimeMs >= seg.end_ms) {
       player.pause();
@@ -186,6 +209,7 @@ export default function PlayerScreen() {
           player.play();
           isPausedRef.current = false;
           setIsPausing(false);
+          listenCountedRef.current = false;
           pauseTimerRef.current = null;
         }, pauseDuration);
       } else {
@@ -300,8 +324,22 @@ export default function PlayerScreen() {
 
   const handleStopRecording = useCallback(async () => {
     const uri = await shadow.stopRecording();
-    if (uri) trackEvent('recording_saved');
-  }, [shadow]);
+    if (uri) {
+      trackEvent('recording_saved');
+      // 统计读次数
+      if (currentSegment) {
+        const db = await getDatabase();
+        await incrementReadCount(db, currentSegment.id);
+        setStatsMap((prev) => ({
+          ...prev,
+          [currentSegment.id]: {
+            listen_count: prev[currentSegment.id]?.listen_count ?? 0,
+            read_count: (prev[currentSegment.id]?.read_count ?? 0) + 1,
+          },
+        }));
+      }
+    }
+  }, [shadow, currentSegment]);
 
   const handleCancelShadow = useCallback(async () => {
     await shadow.cancelRecording();
@@ -413,6 +451,9 @@ export default function PlayerScreen() {
             <View style={styles.segmentInfo}>
               <Text style={styles.segmentIndex}>
                 {currentIndex + 1}/{segments.length}
+              </Text>
+              <Text style={styles.segmentStats}>
+                👂 {(statsMap[currentSegment.id]?.listen_count ?? 0)} · 🎙 {(statsMap[currentSegment.id]?.read_count ?? 0)}
               </Text>
               <Text style={styles.segmentTime}>
                 {formatMs(currentSegment.start_ms)} - {formatMs(currentSegment.end_ms)}
@@ -554,6 +595,9 @@ export default function PlayerScreen() {
           <View style={styles.segmentInfo}>
             <Text style={styles.segmentIndex}>
               第 {currentIndex + 1} / {segments.length} 句
+            </Text>
+            <Text style={styles.segmentStats}>
+              👂 {statsMap[currentSegment.id]?.listen_count ?? 0} 次听 · 🎙 {statsMap[currentSegment.id]?.read_count ?? 0} 次读
             </Text>
             <Text style={styles.segmentTime}>
               {formatMs(currentSegment.start_ms)} - {formatMs(currentSegment.end_ms)}
@@ -920,6 +964,10 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontSize: fontSizes.sm,
     fontVariant: ['tabular-nums'],
+  },
+  segmentStats: {
+    color: colors.textTertiary,
+    fontSize: fontSizes.xs,
   },
   controlsRow: {
     flexDirection: 'row',

@@ -67,6 +67,8 @@ export interface ReviewSchedule {
   due_at: number;
   interval_days: number;
   review_count: number;
+  listen_count: number;
+  read_count: number;
   updated_at: number;
 }
 
