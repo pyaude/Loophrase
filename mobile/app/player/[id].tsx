@@ -63,6 +63,7 @@ export default function PlayerScreen() {
   const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
   const [statsMap, setStatsMap] = useState<Record<string, { listen_count: number; read_count: number }>>({});
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [alwaysShowSubtitle, setAlwaysShowSubtitle] = useState(true);
 
   const { width, height } = useWindowDimensions();
@@ -102,14 +103,19 @@ export default function PlayerScreen() {
 
   // 播放期间隐藏控制按钮；暂停/跟读时保持显示
   useEffect(() => {
-    if (shadowPanelOpen || isPausing || !player.playing) {
+    if (shadowPanelOpen || isPausing || !isPlaying) {
       setControlsVisible(true);
       if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
     } else {
       // 播放恢复时立即隐藏
       setControlsVisible(false);
     }
-  }, [shadowPanelOpen, isPausing, player.playing]);
+  }, [shadowPanelOpen, isPausing, isPlaying]);
+
+  // 监听播放状态变化，同步到 React state
+  useEventListener(player, 'playingChange', (event) => {
+    setIsPlaying(event.isPlaying);
+  });
 
   useEffect(() => {
     return () => {
@@ -522,7 +528,7 @@ export default function PlayerScreen() {
                   <Text style={[styles.controlBtnText, currentIndex === 0 && styles.disabled]}>⏮</Text>
                 </Pressable>
                 <Pressable style={styles.playBtn} onPress={togglePlay}>
-                  <Text style={styles.playBtnText}>{player.playing ? '⏸' : '▶'}</Text>
+                  <Text style={styles.playBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
                 </Pressable>
                 <Pressable
                   style={styles.controlBtn}
@@ -676,7 +682,7 @@ export default function PlayerScreen() {
                   <Text style={[styles.controlBtnText, currentIndex === 0 && styles.disabled]}>⏮</Text>
                 </Pressable>
                 <Pressable style={styles.playBtn} onPress={togglePlay}>
-                  <Text style={styles.playBtnText}>{player.playing ? '⏸' : '▶'}</Text>
+                  <Text style={styles.playBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
                 </Pressable>
                 <Pressable
                   style={styles.controlBtn}
@@ -910,8 +916,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   landscapeControls: {
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginHorizontal: spacing.lg,
@@ -952,12 +956,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   shadowPanel: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
     marginHorizontal: spacing.md,
     borderRadius: radius.md,
     padding: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
   },
   shadowStatusRow: {
     flexDirection: 'row',
