@@ -1,6 +1,7 @@
 services:
-  update-server:
+  loophrase-server:
     image: ghcr.io/${REGISTRY_OWNER}/loophrase-server:${APP_VERSION}
+    container_name: loophrase-server
     ports:
       - "8100:8000"
     volumes:

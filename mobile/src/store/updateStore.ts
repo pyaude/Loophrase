@@ -7,8 +7,8 @@ interface UpdateState {
   updateInfo: UpdateCheckResult | null;
   checking: boolean;
   autoChecked: boolean;
-  /** 手动触发检查（忽略 24h 缓存） */
-  checkManually: () => Promise<UpdateCheckResult | null>;
+  /** 手动触发检查（忽略 24h 缓存），出错时抛出异常 */
+  checkManually: () => Promise<UpdateCheckResult>;
   /** 自动检查（遵守 24h 缓存） */
   checkAuto: () => Promise<void>;
   /** 关闭更新提示 */
@@ -24,14 +24,12 @@ export const useUpdateStore = create<UpdateState>((set) => ({
     set({ checking: true });
     try {
       const result = await checkForUpdate(true);
-      if (result?.has_update) {
+      if (result.has_update) {
         set({ updateInfo: result });
       } else {
         set({ updateInfo: null });
       }
       return result;
-    } catch {
-      return null;
     } finally {
       set({ checking: false });
     }
@@ -40,11 +38,11 @@ export const useUpdateStore = create<UpdateState>((set) => ({
   checkAuto: async () => {
     try {
       const result = await checkForUpdate(false);
-      if (result?.has_update) {
+      if (result.has_update) {
         set({ updateInfo: result });
       }
     } catch {
-      // 静默失败
+      // 自动检查静默失败
     } finally {
       set({ autoChecked: true });
     }

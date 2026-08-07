@@ -42,12 +42,13 @@ export default function SettingsScreen() {
   const handleCheckUpdate = useCallback(async () => {
     try {
       const result = await checkManually();
-      if (!result || !result.has_update) {
+      if (!result.has_update) {
         Alert.alert('已是最新版本', `当前版本 v${appVersion}`);
       }
       // 有更新时，UpdateModal 会由全局 store 驱动弹出
-    } catch {
-      Alert.alert('检查失败', '无法连接到更新服务器，请稍后重试');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '未知错误';
+      Alert.alert('检查失败', `无法检查更新：${msg}`);
     }
   }, [appVersion, checkManually]);
 

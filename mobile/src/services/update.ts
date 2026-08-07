@@ -47,10 +47,9 @@ export function getAppVersion(): string {
  * 检查是否有新版本可用
  * @param force 是否强制检查（忽略 24h 缓存）
  */
-export async function checkForUpdate(force = false): Promise<UpdateCheckResult | null> {
+export async function checkForUpdate(force = false): Promise<UpdateCheckResult> {
   if (!UPDATE_SERVER_URL) {
-    if (__DEV__) console.log('[update] UPDATE_SERVER_URL 未配置');
-    return null;
+    throw new Error('未配置更新服务器地址');
   }
 
   const currentVersion = getAppVersion();
@@ -62,30 +61,23 @@ export async function checkForUpdate(force = false): Promise<UpdateCheckResult |
     if (lastCheck && lastCheck.version === currentVersion) {
       const elapsed = Date.now() - lastCheck.timestamp;
       if (elapsed < CHECK_INTERVAL_MS) {
-        if (__DEV__) console.log('[update] 24h 内已检查过，跳过');
-        return null;
+        return { has_update: false, latest_version: currentVersion };
       }
     }
   }
 
-  try {
-    const url = `${UPDATE_SERVER_URL}/api/v1/check-update?platform=${platform}&version=${currentVersion}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      if (__DEV__) console.warn('[update] 检查更新失败:', response.status);
-      return null;
-    }
-
-    const result: UpdateCheckResult = await response.json();
-
-    // 记录本次检查时间
-    await recordCheck(currentVersion);
-
-    return result;
-  } catch (err) {
-    if (__DEV__) console.warn('[update] 检查更新异常:', err);
-    return null;
+  const url = `${UPDATE_SERVER_URL}/api/v1/check-update?platform=${platform}&version=${currentVersion}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`服务器返回错误 (${response.status})`);
   }
+
+  const result: UpdateCheckResult = await response.json();
+
+  // 记录本次检查时间
+  await recordCheck(currentVersion);
+
+  return result;
 }
 
 /**
