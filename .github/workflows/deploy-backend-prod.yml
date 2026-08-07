@@ -96,7 +96,7 @@ jobs:
             gunzip -c /tmp/loophrase-deploy/deploy-tmp/server-image.tar.gz | docker load
 
             echo "Stopping old container..."
-            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml down --remove-orphans
 
             echo "Starting container..."
             docker compose -f docker-compose.prod.yml up -d --no-build --force-recreate
@@ -104,7 +104,6 @@ jobs:
             echo "=== Container Status ==="
             docker compose -f docker-compose.prod.yml ps
             echo "=== Server Logs (last 20 lines) ==="
-            docker logs loophrase-server-update-server-1 --tail 20 2>&1 || \
             docker logs $(docker compose -f docker-compose.prod.yml ps -q) --tail 20 2>&1 || true
 
             echo "=== Deployment completed ==="
