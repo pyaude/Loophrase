@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { NavigationBar } from 'expo-navigation-bar';
 import { useEventListener } from 'expo';
+import { useKeepAwake } from 'expo-keep-awake';
 import { Platform } from 'react-native';
 import { getDatabase } from '../../src/db/client';
 import {
@@ -46,6 +47,7 @@ const LEAD_OUT_MS = 400;
 export default function PlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  useKeepAwake();
 
   const [project, setProject] = useState<MediaProject | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -831,13 +833,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: radius.lg,
-    marginHorizontal: spacing.xl,
-    marginTop: spacing.xs,
   },
   landscapeControls: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -864,6 +862,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 30,
     fontWeight: fontWeights.medium,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   subtitleMuted: {
     color: colors.textTertiary,
@@ -876,12 +877,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   shadowPanel: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     marginHorizontal: spacing.md,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   shadowStatusRow: {
     flexDirection: 'row',
@@ -898,7 +899,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
   },
   shadowChip: {
-    backgroundColor: colors.accent,
+    backgroundColor: 'rgba(245,158,11,0.6)',
   },
   recordStopBtn: {
     backgroundColor: colors.danger,
@@ -993,7 +994,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(99,102,241,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1013,10 +1014,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   chipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(99,102,241,0.5)',
   },
   chipText: {
     color: colors.textInverse,
@@ -1037,7 +1038,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     alignItems: 'center',
     marginHorizontal: spacing.xs,
-    opacity: 0.9,
+    opacity: 0.7,
   },
   markBtnActive: {
     opacity: 1,
