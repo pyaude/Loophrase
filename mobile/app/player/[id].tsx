@@ -82,7 +82,7 @@ export default function PlayerScreen() {
   const listenCountedRef = useRef(false);
   const hideControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const CONTROLS_HIDE_DELAY = 4000; // 4 秒后自动隐藏
+  const CONTROLS_HIDE_DELAY = 4000; // 手动点击后 4 秒自动隐藏
 
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
@@ -92,15 +92,16 @@ export default function PlayerScreen() {
     }, CONTROLS_HIDE_DELAY);
   }, []);
 
-  // 跟读面板或等待复读状态时保持显示
+  // 播放期间隐藏控制按钮；暂停/跟读时保持显示
   useEffect(() => {
-    if (shadowPanelOpen || isPausing) {
+    if (shadowPanelOpen || isPausing || !player.playing) {
       setControlsVisible(true);
       if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
     } else {
-      showControlsTemporarily();
+      // 播放恢复时立即隐藏
+      setControlsVisible(false);
     }
-  }, [shadowPanelOpen, isPausing, showControlsTemporarily]);
+  }, [shadowPanelOpen, isPausing, player.playing]);
 
   useEffect(() => {
     return () => {
@@ -258,9 +259,14 @@ export default function PlayerScreen() {
             seekToSegment(nextIndex);
           }, Math.max(pauseDuration, 500));
         } else {
-          // 最后一句，停止
-          currentRepeatRef.current = 0;
-          setCurrentRepeat(0);
+          // 最后一句复读完毕，回到第一句重新开始
+          isPausedRef.current = true;
+          setIsPausing(true);
+          pauseTimerRef.current = setTimeout(() => {
+            seekToSegment(0);
+          }, Math.max(pauseMsRef.current === PAUSE_SENTINEL
+            ? Math.max(seg.end_ms - seg.start_ms, 500)
+            : pauseMsRef.current, 500));
         }
       }
     }
