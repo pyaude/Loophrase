@@ -134,8 +134,11 @@ export async function installApk(apkUri: string): Promise<void> {
     throw new Error('仅支持 Android 平台');
   }
 
+  // 将 file:// 转为 content:// URI（Android 7+ 要求 FileProvider）
+  const contentUri = await FileSystem.getContentUriAsync(apkUri);
+
   await IntentLauncher.startActivityAsync(ACTION_VIEW, {
-    data: apkUri,
+    data: contentUri,
     type: 'application/vnd.android.package-archive',
     flags: FLAG_GRANT_READ_URI_PERMISSION,
   });
