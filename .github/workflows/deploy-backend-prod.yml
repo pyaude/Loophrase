@@ -1,0 +1,110 @@
+name: Deploy Update Server (Prod)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: "Image tag (e.g., latest, v1.0.0)"
+        required: false
+        default: "latest"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/loophrase-server
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy Update Server
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: true
+          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.app_version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Prepare deployment artifacts
+        run: |
+          APP_VERSION="${{ github.event.inputs.app_version }}"
+          mkdir -p deploy-tmp
+
+          # 拉取镜像并打包（用于离线传输到部署服务器）
+          docker pull "$REGISTRY/$IMAGE_NAME:$APP_VERSION"
+          docker save "$REGISTRY/$IMAGE_NAME:$APP_VERSION" | gzip > deploy-tmp/server-image.tar.gz
+
+          # 复制 docker-compose 配置
+          cp server/docker-compose.prod.yml deploy-tmp/
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER || 'root' }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "deploy-tmp"
+          target: "/tmp/loophrase-deploy"
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@v1
+        env:
+          ADMIN_TOKEN: ${{ secrets.UPDATE_ADMIN_TOKEN }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER || 'root' }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: ADMIN_TOKEN
+          script: |
+            set -e
+            DEPLOY_PATH="${{ secrets.PROD_DEPLOY_PATH || '/opt/loophrase/server' }}"
+            APP_VERSION="${{ github.event.inputs.app_version }}"
+            REGISTRY_OWNER="${{ github.repository_owner }}"
+
+            echo "=== Update Server Deployment: $APP_VERSION ==="
+
+            mkdir -p "$DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
+
+            # 从密钥生成 .env
+            cat > "$DEPLOY_PATH/.env" <<EOF
+            ADMIN_TOKEN=$ADMIN_TOKEN
+            REGISTRY_OWNER=$REGISTRY_OWNER
+            APP_VERSION=$APP_VERSION
+            EOF
+
+            # 复制 docker-compose 配置
+            cp /tmp/loophrase-deploy/deploy-tmp/docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.prod.yml"
+
+            echo "Loading Docker image from archive..."
+            gunzip -c /tmp/loophrase-deploy/deploy-tmp/server-image.tar.gz | docker load
+
+            echo "Stopping old container..."
+            docker compose -f docker-compose.prod.yml down
+
+            echo "Starting container..."
+            docker compose -f docker-compose.prod.yml up -d --no-build --force-recreate
+
+            echo "=== Container Status ==="
+            docker compose -f docker-compose.prod.yml ps
+            echo "=== Server Logs (last 20 lines) ==="
+            docker logs loophrase-server-update-server-1 --tail 20 2>&1 || \
+            docker logs $(docker compose -f docker-compose.prod.yml ps -q) --tail 20 2>&1 || true
+
+            echo "=== Deployment completed ==="

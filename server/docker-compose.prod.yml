@@ -1,0 +1,11 @@
+services:
+  update-server:
+    image: ghcr.io/${REGISTRY_OWNER}/loophrase-server:${APP_VERSION}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apks:/app/apks
+      - ./data:/app/data
+    environment:
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+    restart: unless-stopped
