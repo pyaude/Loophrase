@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEventListener } from 'expo';
 import type { DocumentPickerAsset } from 'expo-document-picker';
-import { colors, spacing, fontSizes, radius } from '../src/theme';
+import { colors, spacing, fontSizes, fontWeights, radius, shadows } from '../src/theme';
 import {
   pickMediaFile,
   pickSubtitleAsset,
@@ -256,53 +256,56 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: spacing.md,
     fontSize: fontSizes.md,
+    fontWeight: fontWeights.medium,
     color: colors.textSecondary,
   },
   form: {
     flex: 1,
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
   title: {
     fontSize: fontSizes.xxl,
-    fontWeight: '700',
+    fontWeight: fontWeights.bold,
     color: colors.text,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
     marginBottom: spacing.xl,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   sectionLabel: {
     fontSize: fontSizes.sm,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
   filePicker: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bgSecondary,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    backgroundColor: colors.bgWhite,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 1.5,
     borderColor: colors.border,
     borderStyle: 'dashed',
+    ...shadows.sm,
   },
   filePickerFilled: {
     borderColor: colors.primary,
     borderStyle: 'solid',
+    backgroundColor: colors.primaryBg,
   },
   fileInfo: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   fileIcon: {
-    fontSize: 28,
+    fontSize: 32,
   },
   fileDetails: {
     flex: 1,
@@ -310,30 +313,30 @@ const styles = StyleSheet.create({
   fileName: {
     fontSize: fontSizes.md,
     color: colors.text,
-    fontWeight: '500',
+    fontWeight: fontWeights.medium,
   },
   fileHint: {
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
   },
   pickerArrow: {
-    fontSize: 24,
+    fontSize: 28,
     color: colors.primary,
-    fontWeight: '300',
+    fontWeight: fontWeights.regular,
   },
   removeBtn: {
     width: 28,
     height: 28,
-    borderRadius: radius.sm,
+    borderRadius: radius.full,
     backgroundColor: colors.danger,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removeText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
+    color: colors.textInverse,
+    fontSize: fontSizes.sm,
+    fontWeight: fontWeights.bold,
   },
   checkboxRow: {
     flexDirection: 'row',
@@ -356,8 +359,8 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: fontSizes.md,
+    fontWeight: fontWeights.bold,
   },
   checkboxLabel: {
     fontSize: fontSizes.md,
@@ -366,16 +369,17 @@ const styles = StyleSheet.create({
   },
   privacyHint: {
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     marginTop: spacing.sm,
     lineHeight: 20,
   },
   importButton: {
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: spacing.xl,
+    marginTop: spacing.xxl,
+    ...shadows.md,
   },
   buttonDisabled: {
     opacity: 0.4,
@@ -383,7 +387,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: colors.textInverse,
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   cancelButton: {
     paddingVertical: spacing.md,
@@ -391,7 +395,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   cancelText: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.md,
   },
 });

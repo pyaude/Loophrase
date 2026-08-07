@@ -2,16 +2,43 @@
 
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { colors } from '../../src/theme';
+import { colors, shadows } from '../../src/theme';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        headerStyle: { backgroundColor: colors.bg },
-        headerTitleStyle: { fontSize: 18, fontWeight: '600' },
+        tabBarInactiveTintColor: colors.textTertiary,
+        headerStyle: {
+          backgroundColor: colors.bg,
+          shadowColor: 'transparent',
+          shadowOpacity: 0,
+          elevation: 0,
+          borderBottomWidth: 0,
+        },
+        headerTitleStyle: {
+          fontSize: 20,
+          fontWeight: '700',
+          color: colors.text,
+        },
+        headerShadowVisible: false,
+        tabBarStyle: {
+          backgroundColor: colors.bgWhite,
+          borderTopColor: colors.borderLight,
+          borderTopWidth: 1,
+          height: 56,
+          paddingBottom: 0,
+          paddingTop: 0,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '500',
+          marginTop: -4,
+        },
+        tabBarIconStyle: {
+          marginTop: 6,
+        },
       }}
     >
     <Tabs.Screen
@@ -20,7 +47,7 @@ export default function TabLayout() {
         title: '今日',
         tabBarLabel: '今日',
         tabBarIcon: ({ color }) => (
-          <MaterialIcons name="today" size={26} color={color} />
+          <MaterialIcons name="today" size={24} color={color} />
         ),
       }}
     />
@@ -30,7 +57,7 @@ export default function TabLayout() {
         title: '素材库',
         tabBarLabel: '素材库',
         tabBarIcon: ({ color }) => (
-          <MaterialIcons name="library-music" size={26} color={color} />
+          <MaterialIcons name="library-music" size={24} color={color} />
         ),
       }}
     />
@@ -40,7 +67,7 @@ export default function TabLayout() {
         title: '设置',
         tabBarLabel: '设置',
         tabBarIcon: ({ color }) => (
-          <MaterialIcons name="settings" size={26} color={color} />
+          <MaterialIcons name="settings" size={24} color={color} />
         ),
       }}
     />

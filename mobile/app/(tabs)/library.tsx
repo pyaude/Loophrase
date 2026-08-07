@@ -15,7 +15,7 @@ import { getDatabase } from '../../src/db/client';
 import { getAllProjects, getSegmentsByProject, deleteProject } from '../../src/db/repositories';
 import { deleteMediaFile } from '../../src/services/mediaManager';
 import type { MediaProject } from '../../src/db/types';
-import { colors, spacing, fontSizes, radius } from '../../src/theme';
+import { colors, spacing, fontSizes, fontWeights, radius, shadows } from '../../src/theme';
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -79,62 +79,75 @@ export default function LibraryScreen() {
 
   return (
     <View style={styles.container}>
-      <Pressable
-        style={styles.importButton}
-        onPress={() => router.push('/import')}
-      >
-        <Text style={styles.importText}>+ 导入素材</Text>
-      </Pressable>
-
-      <Text style={styles.sectionTitle}>素材项目 ({projects.length})</Text>
-
-      {projects.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>还没有导入任何素材</Text>
-          <Text style={styles.emptyHint}>
-            支持导入 MP4、MP3/M4A 与 SRT/VTT 字幕文件
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={projects}
-          keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          renderItem={({ item }) => (
+      <FlatList
+        data={projects}
+        keyExtractor={(item) => item.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListHeaderComponent={
+          <View>
+            {/* 导入按钮 */}
             <Pressable
-              style={styles.projectCard}
-              onPress={() => router.push(`/project/${item.id}`)}
-              onLongPress={() => handleDelete(item)}
+              style={styles.importButton}
+              onPress={() => router.push('/import')}
             >
-              <View style={styles.projectIcon}>
-                <Text style={styles.projectIconText}>
-                  {item.source_type === 'video' ? 'VIDEO' : 'AUDIO'}
-                </Text>
-              </View>
-              <View style={styles.projectInfo}>
-                <Text style={styles.projectTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text style={styles.projectMeta}>
-                  {formatDuration(item.duration_ms)} · {segmentCounts[item.id] ?? 0} 切片 ·{' '}
-                  {new Date(item.created_at).toLocaleDateString('zh-CN')}
-                </Text>
-              </View>
-              <Pressable
-                style={styles.deleteBtn}
-                hitSlop={8}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleDelete(item);
-                }}
-              >
-                <Text style={styles.deleteIcon}>✕</Text>
-              </Pressable>
+              <Text style={styles.importText}>+ 导入新素材</Text>
             </Pressable>
-          )}
-          contentContainerStyle={{ paddingBottom: spacing.xl }}
-        />
-      )}
+
+            {/* 区域标题 */}
+            <Text style={styles.sectionTitle}>
+              素材项目 {projects.length > 0 && <Text style={styles.countBadge}>{projects.length}</Text>}
+            </Text>
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>📁</Text>
+            <Text style={styles.emptyText}>还没有导入任何素材</Text>
+            <Text style={styles.emptyHint}>
+              支持导入 MP4、MP3/M4A{'\n'}与 SRT/VTT 字幕文件
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <Pressable
+            style={styles.projectCard}
+            onPress={() => router.push(`/project/${item.id}`)}
+            onLongPress={() => handleDelete(item)}
+          >
+            <View style={[
+              styles.projectIcon,
+              { backgroundColor: item.source_type === 'video' ? colors.primaryBg : colors.warning + '20' },
+            ]}>
+              <Text style={[
+                styles.projectIconText,
+                { color: item.source_type === 'video' ? colors.primary : colors.warning },
+              ]}>
+                {item.source_type === 'video' ? '▶' : '♫'}
+              </Text>
+            </View>
+            <View style={styles.projectInfo}>
+              <Text style={styles.projectTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.projectMeta}>
+                {formatDuration(item.duration_ms)} · {segmentCounts[item.id] ?? 0} 切片 ·{' '}
+                {new Date(item.created_at).toLocaleDateString('zh-CN')}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.deleteBtn}
+              hitSlop={8}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDelete(item);
+              }}
+            >
+              <Text style={styles.deleteIcon}>✕</Text>
+            </Pressable>
+          </Pressable>
+        )}
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
+      />
     </View>
   );
 }
@@ -149,80 +162,99 @@ function formatDuration(ms: number): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
     backgroundColor: colors.bg,
   },
+  // 导入按钮
   importButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.bgWhite,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     alignItems: 'center',
+    marginTop: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
   },
   importText: {
-    color: colors.textInverse,
+    color: colors.primary,
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
+  // 区域标题
   sectionTitle: {
     fontSize: fontSizes.lg,
-    fontWeight: '600',
+    fontWeight: fontWeights.bold,
     color: colors.text,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
+  countBadge: {
+    fontSize: fontSizes.sm,
+    color: colors.textTertiary,
+    fontWeight: fontWeights.regular,
+  },
+  // 空状态
   empty: {
     alignItems: 'center',
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyEmoji: {
+    fontSize: 48,
+    marginBottom: spacing.md,
   },
   emptyText: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    fontSize: fontSizes.lg,
+    color: colors.text,
+    fontWeight: fontWeights.semibold,
   },
   emptyHint: {
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    lineHeight: 22,
   },
+  // 项目卡片
   projectCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: colors.bgWhite,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
     gap: spacing.md,
+    ...shadows.sm,
   },
   projectIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.sm,
-    backgroundColor: colors.primaryLight,
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   projectIconText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textInverse,
+    fontSize: 20,
   },
   projectInfo: {
     flex: 1,
   },
   projectTitle: {
     fontSize: fontSizes.md,
-    fontWeight: '500',
+    fontWeight: fontWeights.semibold,
     color: colors.text,
   },
   projectMeta: {
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
   deleteBtn: {
-    padding: spacing.xs,
+    padding: spacing.sm,
   },
   deleteIcon: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    color: colors.textTertiary,
   },
 });

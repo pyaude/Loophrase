@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Application from 'expo-application';
-import { colors, spacing, fontSizes, radius } from '../../src/theme';
+import { colors, spacing, fontSizes, fontWeights, radius, shadows } from '../../src/theme';
 import { isSyncAvailable, syncToCloud } from '../../src/services/sync';
 import { trackEvent } from '../../src/services/analytics';
 import { useUpdateStore } from '../../src/store/updateStore';
@@ -57,7 +57,7 @@ export default function SettingsScreen() {
       contentContainerStyle={{ paddingBottom: spacing.xl }}
     >
       {/* 播放设置 */}
-      <Text style={styles.sectionTitle}>播放设置</Text>
+      <Text style={styles.sectionLabel}>播放设置</Text>
       <View style={styles.group}>
         <SettingRow label="单句循环缓冲" value="前 0.2s / 后 0.4s" />
         <SettingRow label="默认播放速度" value="1.0x" />
@@ -70,14 +70,14 @@ export default function SettingsScreen() {
       </View>
 
       {/* 复习设置 */}
-      <Text style={styles.sectionTitle}>复习设置</Text>
+      <Text style={styles.sectionLabel}>复习设置</Text>
       <View style={styles.group}>
         <SettingRow label="每日新增上限" value="5 句" />
         <SettingRow label="复习间隔" value="1 / 3 / 7 / 14 / 30 天" />
       </View>
 
       {/* 云同步 */}
-      <Text style={styles.sectionTitle}>云同步</Text>
+      <Text style={styles.sectionLabel}>云同步</Text>
       <View style={styles.group}>
         <SettingRow
           label="同步状态"
@@ -85,19 +85,26 @@ export default function SettingsScreen() {
         />
         {syncOn && (
           <Pressable
-            style={styles.syncButton}
+            style={styles.actionRow}
             onPress={handleSync}
             disabled={syncing}
           >
-            <Text style={styles.syncButtonText}>
-              {syncing ? '同步中...' : '立即同步'}
-            </Text>
+            {syncing ? (
+              <View style={styles.actionRowContent}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+                  同步中...
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.actionText}>立即同步</Text>
+            )}
           </Pressable>
         )}
       </View>
 
       {/* 隐私 */}
-      <Text style={styles.sectionTitle}>隐私与数据</Text>
+      <Text style={styles.sectionLabel}>隐私与数据</Text>
       <View style={styles.group}>
         <SettingRow label="原视频存储位置" value="仅本地" />
         <SettingRow label="云端转写授权" value="未启用" />
@@ -107,22 +114,24 @@ export default function SettingsScreen() {
       </View>
 
       {/* 关于 */}
-      <Text style={styles.sectionTitle}>关于</Text>
+      <Text style={styles.sectionLabel}>关于</Text>
       <View style={styles.group}>
         <SettingRow label="版本" value={`v${appVersion}`} />
         <SettingRow label="学习方法" value="100LS 精练法" />
         <Pressable
-          style={styles.updateButton}
+          style={styles.actionRow}
           onPress={handleCheckUpdate}
           disabled={checkingUpdate}
         >
           {checkingUpdate ? (
-            <View style={styles.updateButtonContent}>
+            <View style={styles.actionRowContent}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.updateButtonText}>检查中...</Text>
+              <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+                检查中...
+              </Text>
             </View>
           ) : (
-            <Text style={styles.updateButtonText}>检查更新</Text>
+            <Text style={styles.actionText}>检查更新</Text>
           )}
         </Pressable>
       </View>
@@ -164,19 +173,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
-  sectionTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '600',
-    color: colors.text,
+  sectionLabel: {
+    fontSize: fontSizes.xs,
+    fontWeight: fontWeights.semibold,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
   group: {
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: colors.bgWhite,
     borderRadius: radius.md,
     overflow: 'hidden',
+    ...shadows.sm,
   },
   settingRow: {
     flexDirection: 'row',
@@ -185,39 +199,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
   },
   settingLabel: {
     fontSize: fontSizes.md,
     color: colors.text,
+    fontWeight: fontWeights.medium,
   },
   settingValue: {
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
   },
-  syncButton: {
+  actionRow: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
   },
-  syncButtonText: {
-    color: colors.primary,
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-  },
-  updateButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-  },
-  updateButtonContent: {
+  actionRowContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  updateButtonText: {
+  actionText: {
     color: colors.primary,
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
 });

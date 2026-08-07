@@ -148,7 +148,7 @@ function formatFileSize(bytes: number): string {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
@@ -156,9 +156,10 @@ const styles = StyleSheet.create({
   modal: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: colors.bg,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    backgroundColor: colors.bgWhite,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    ...shadows.lg,
   },
   modalForce: {
     borderColor: colors.danger,
@@ -166,14 +167,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: fontSizes.xl,
-    fontWeight: '700',
+    fontWeight: fontWeights.bold,
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   version: {
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
     color: colors.primary,
     textAlign: 'center',
     marginBottom: spacing.md,
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
   },
   fileSize: {
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     width: '100%',
-    height: 8,
+    height: 6,
     backgroundColor: colors.bgSecondary,
     borderRadius: radius.full,
     overflow: 'hidden',
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: fontSizes.sm,
     color: colors.text,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   errorContainer: {
     marginVertical: spacing.md,
@@ -224,13 +225,13 @@ const styles = StyleSheet.create({
   retryBtn: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     backgroundColor: colors.bgSecondary,
   },
   retryBtnText: {
     fontSize: fontSizes.sm,
     color: colors.text,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -240,21 +241,22 @@ const styles = StyleSheet.create({
   cancelBtn: {
     flex: 1,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.bgSecondary,
     alignItems: 'center',
   },
   cancelBtnText: {
     fontSize: fontSizes.md,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: fontWeights.medium,
   },
   updateBtn: {
     flex: 1,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.primary,
     alignItems: 'center',
+    ...shadows.sm,
   },
   updateBtnForce: {
     flex: 1,
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
   updateBtnText: {
     fontSize: fontSizes.md,
     color: colors.textInverse,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   forceHint: {
     fontSize: fontSizes.xs,

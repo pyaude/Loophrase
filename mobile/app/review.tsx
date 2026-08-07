@@ -16,7 +16,7 @@ import { useEventListener } from 'expo';
 import { getDatabase } from '../src/db/client';
 import { getDueSegments, markResult, createAttempt, getProjectById } from '../src/db/repositories';
 import type { MediaProject, Segment } from '../src/db/types';
-import { colors, spacing, fontSizes, radius } from '../src/theme';
+import { colors, spacing, fontSizes, fontWeights, radius, shadows } from '../src/theme';
 
 type ReviewItem = {
   segment_id: string;
@@ -242,6 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgDark,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   emptyContainer: {
     flex: 1,
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: fontSizes.xxl,
-    fontWeight: '700',
+    fontWeight: fontWeights.bold,
     color: colors.text,
     marginBottom: spacing.md,
   },
@@ -268,49 +269,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: radius.md,
+    ...shadows.md,
   },
   backBtnText: {
     color: colors.textInverse,
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   progressText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.sm,
+    color: colors.textTertiary,
+    fontSize: fontSizes.xs,
     textAlign: 'center',
     marginBottom: spacing.lg,
+    fontWeight: fontWeights.medium,
+    letterSpacing: 0.5,
   },
   listenArea: {
     flex: 1,
     justifyContent: 'center',
   },
   blindCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: radius.lg,
-    padding: spacing.xl,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: radius.xl,
+    padding: spacing.xxl,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    ...shadows.lg,
   },
   blindHint: {
     color: colors.textInverse,
     fontSize: fontSizes.xxl,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
     marginBottom: spacing.sm,
   },
   blindSubtext: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.md,
   },
   answerCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    maxHeight: 300,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    maxHeight: 320,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    ...shadows.lg,
   },
   answerText: {
     color: colors.textInverse,
     fontSize: fontSizes.xl,
-    lineHeight: 32,
-    fontWeight: '500',
+    lineHeight: 34,
+    fontWeight: fontWeights.medium,
   },
   controlsRow: {
     flexDirection: 'row',
@@ -319,20 +329,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   replayBtn: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   replayBtnText: {
     color: colors.textInverse,
     fontSize: fontSizes.md,
+    fontWeight: fontWeights.medium,
   },
   answerBtn: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.primary,
+    ...shadows.md,
   },
   answerBtnActive: {
     backgroundColor: colors.primaryLight,
@@ -340,31 +352,31 @@ const styles = StyleSheet.create({
   answerBtnText: {
     color: colors.textInverse,
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   markRow: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
     paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
   markBtn: {
     flex: 1,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     alignItems: 'center',
-    marginHorizontal: spacing.xs,
   },
   markBtnText: {
     color: colors.textInverse,
     fontSize: fontSizes.sm,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   exitBtn: {
     paddingVertical: spacing.md,
     alignItems: 'center',
+    marginTop: spacing.sm,
   },
   exitText: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.sm,
   },
 });

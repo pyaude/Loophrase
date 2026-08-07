@@ -25,7 +25,7 @@ import {
   createAttempt,
 } from '../../src/db/repositories';
 import type { MediaProject, Segment } from '../../src/db/types';
-import { colors, spacing, fontSizes, radius } from '../../src/theme';
+import { colors, spacing, fontSizes, fontWeights, radius } from '../../src/theme';
 import { useShadowRecorder } from '../../src/hooks/useShadowRecorder';
 import { trackEvent } from '../../src/services/analytics';
 
@@ -738,7 +738,7 @@ function formatMs(ms: number): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.bgDark,
   },
   portraitContent: {
     flex: 1,
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: colors.bgDark,
   },
   loadingText: {
     color: colors.textInverse,
@@ -757,24 +757,24 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.primary,
   },
   goEditText: {
     color: colors.primary,
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   videoContainer: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: '#000',
+    backgroundColor: colors.bgDark,
     overflow: 'hidden',
   },
   landscapeVideoContainer: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#000',
+    backgroundColor: colors.bgDark,
     overflow: 'hidden',
   },
   landscapeOverlay: {
@@ -787,13 +787,13 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: radius.md,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: radius.lg,
     marginHorizontal: spacing.xl,
     marginTop: spacing.xs,
   },
   landscapeControls: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -812,19 +812,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: colors.bgDark,
   },
   subtitleText: {
     fontSize: fontSizes.xl,
     color: colors.textInverse,
     textAlign: 'center',
     lineHeight: 30,
-    fontWeight: '500',
+    fontWeight: fontWeights.medium,
   },
   subtitleMuted: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.md,
-    fontWeight: '400',
+    fontWeight: fontWeights.regular,
   },
   pauseHint: {
     color: colors.accent,
@@ -832,10 +832,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   shadowPanel: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     marginHorizontal: spacing.md,
     borderRadius: radius.md,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   shadowStatusRow: {
     flexDirection: 'row',
@@ -845,10 +847,10 @@ const styles = StyleSheet.create({
   shadowStatusText: {
     color: colors.textInverse,
     fontSize: fontSizes.sm,
-    fontWeight: '500',
+    fontWeight: fontWeights.medium,
   },
   shadowCancel: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.md,
   },
   shadowChip: {
@@ -864,13 +866,13 @@ const styles = StyleSheet.create({
   recordStopText: {
     color: colors.textInverse,
     fontSize: fontSizes.md,
-    fontWeight: '700',
+    fontWeight: fontWeights.bold,
   },
   recordingList: {
     marginTop: spacing.sm,
   },
   recordingListTitle: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.xs,
     marginBottom: spacing.xs,
   },
@@ -881,7 +883,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   recordingIndex: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.sm,
     minWidth: 20,
   },
@@ -912,9 +914,10 @@ const styles = StyleSheet.create({
   segmentIndex: {
     color: colors.textInverse,
     fontSize: fontSizes.sm,
+    fontWeight: fontWeights.medium,
   },
   segmentTime: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.sm,
     fontVariant: ['tabular-nums'],
   },
@@ -972,7 +975,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
   },
   chipTextActive: {
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   markRow: {
     flexDirection: 'row',
@@ -983,7 +986,7 @@ const styles = StyleSheet.create({
   markBtn: {
     flex: 1,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     alignItems: 'center',
     marginHorizontal: spacing.xs,
     opacity: 0.9,
@@ -995,14 +998,14 @@ const styles = StyleSheet.create({
   markBtnText: {
     color: colors.textInverse,
     fontSize: fontSizes.sm,
-    fontWeight: '600',
+    fontWeight: fontWeights.semibold,
   },
   closeBtn: {
     paddingVertical: spacing.md,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: fontSizes.sm,
   },
 });
