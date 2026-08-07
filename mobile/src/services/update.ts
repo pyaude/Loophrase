@@ -1,7 +1,7 @@
 // 应用更新服务：检查新版本、下载 APK、触发安装（§U2）
 
 import * as Application from 'expo-application';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Platform } from 'react-native';
 
