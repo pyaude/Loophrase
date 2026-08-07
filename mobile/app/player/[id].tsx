@@ -67,6 +67,8 @@ export default function PlayerScreen() {
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+  // 横屏时视频 contain 模式下的实际宽度（假设 16:9 视频，常见比例）
+  const landscapeVideoWidth = isLandscape ? height * (16 / 9) : width;
 
   const currentSegment = segments[currentIndex];
   const shadow = useShadowRecorder(currentSegment?.id);
@@ -81,6 +83,12 @@ export default function PlayerScreen() {
   const currentIndexRef = useRef(0);
   const listenCountedRef = useRef(false);
   const hideControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const player = useVideoPlayer(null, (p) => {
+    p.loop = false;
+    p.timeUpdateEventInterval = 0.05;
+    p.preservesPitch = true;
+  });
 
   const CONTROLS_HIDE_DELAY = 4000; // 手动点击后 4 秒自动隐藏
 
@@ -113,12 +121,6 @@ export default function PlayerScreen() {
   useEffect(() => { pauseMsRef.current = pauseMs; }, [pauseMs]);
   useEffect(() => { segmentsRef.current = segments; }, [segments]);
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
-
-  const player = useVideoPlayer(null, (p) => {
-    p.loop = false;
-    p.timeUpdateEventInterval = 0.05;
-    p.preservesPitch = true;
-  });
 
   const seekToSegment = useCallback(
     (index: number, autoPlay = true) => {
@@ -467,7 +469,10 @@ export default function PlayerScreen() {
       </View>
 
       {isLandscape ? (
-        <Pressable style={styles.landscapeOverlay} onPress={toggleControls}>
+        <Pressable
+          style={[styles.landscapeOverlay, { width: landscapeVideoWidth, left: (width - landscapeVideoWidth) / 2 }]}
+          onPress={toggleControls}
+        >
           {/* 字幕区域 - 横屏 */}
           <View style={styles.landscapeSubtitleArea}>
             {subtitleVisible && subtitleMode === 'english' && (
