@@ -7,6 +7,8 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     container:
       image: ghcr.io/pyaude/loophrase:android-builder
     timeout-minutes: 20
@@ -20,14 +22,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read app version
+      - name: Bump & read version
         id: version
         working-directory: mobile
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "APP_VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "ARTIFACT_NAME=Loophrase-v$VERSION" >> $GITHUB_OUTPUT
+          OLD_VERSION=$(node -p "require('./package.json').version")
+          echo "当前版本: v$OLD_VERSION"
+
+          # 自动递增 patch 版本号
+          npm version patch --no-git-tag-version --silent
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "新版本: v$NEW_VERSION"
+
+          # 同步 app.json 中的 version
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            cfg.expo.version = '$NEW_VERSION';
+            fs.writeFileSync('app.json', JSON.stringify(cfg, null, 2) + '\n');
+          "
+
+          # 提交版本号变更
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json app.json
+          git commit -m "chore: 升级版本 v$OLD_VERSION → v$NEW_VERSION"
+          git push
+
+          echo "APP_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "ARTIFACT_NAME=Loophrase-v$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         working-directory: mobile
