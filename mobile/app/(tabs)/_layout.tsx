@@ -2,9 +2,13 @@
 
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { colors, shadows } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../../src/theme';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const tabHeight = 56 + insets.bottom;
+
   return (
     <Tabs
       screenOptions={{
@@ -27,8 +31,8 @@ export default function TabLayout() {
           backgroundColor: colors.bgWhite,
           borderTopColor: colors.borderLight,
           borderTopWidth: 1,
-          height: 56,
-          paddingBottom: 0,
+          height: tabHeight,
+          paddingBottom: insets.bottom,
           paddingTop: 0,
         },
         tabBarLabelStyle: {
@@ -41,36 +45,36 @@ export default function TabLayout() {
         },
       }}
     >
-    <Tabs.Screen
-      name="today"
-      options={{
-        title: '今日',
-        tabBarLabel: '今日',
-        tabBarIcon: ({ color }) => (
-          <MaterialIcons name="today" size={24} color={color} />
-        ),
-      }}
-    />
-    <Tabs.Screen
-      name="library"
-      options={{
-        title: '素材库',
-        tabBarLabel: '素材库',
-        tabBarIcon: ({ color }) => (
-          <MaterialIcons name="library-music" size={24} color={color} />
-        ),
-      }}
-    />
-    <Tabs.Screen
-      name="settings"
-      options={{
-        title: '设置',
-        tabBarLabel: '设置',
-        tabBarIcon: ({ color }) => (
-          <MaterialIcons name="settings" size={24} color={color} />
-        ),
-      }}
-    />
+      <Tabs.Screen
+        name="today"
+        options={{
+          title: '今日',
+          tabBarLabel: '今日',
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="today" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="library"
+        options={{
+          title: '素材库',
+          tabBarLabel: '素材库',
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="library-music" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: '设置',
+          tabBarLabel: '设置',
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="settings" size={24} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
