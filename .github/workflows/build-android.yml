@@ -67,6 +67,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Generate .env
+        working-directory: mobile
+        env:
+          EXPO_PUBLIC_UPDATE_SERVER_URL: ${{ secrets.EXPO_PUBLIC_UPDATE_SERVER_URL }}
+        run: |
+          if [ -z "$EXPO_PUBLIC_UPDATE_SERVER_URL" ]; then
+            echo "::warning::EXPO_PUBLIC_UPDATE_SERVER_URL secret 未配置，更新功能将不可用"
+            cat > .env <<'EOF'
+          EXPO_PUBLIC_UPDATE_SERVER_URL=
+          EXPO_PUBLIC_SUPABASE_URL=
+          EXPO_PUBLIC_SUPABASE_ANON_KEY=
+          EOF
+          else
+            cat > .env <<EOF
+          EXPO_PUBLIC_UPDATE_SERVER_URL=$EXPO_PUBLIC_UPDATE_SERVER_URL
+          EXPO_PUBLIC_SUPABASE_URL=
+          EXPO_PUBLIC_SUPABASE_ANON_KEY=
+          EOF
+          fi
+          echo ".env generated:"
+          grep -o 'EXPO_PUBLIC_[A-Z_]*=' .env
+
       - name: Read app version
         id: version
         working-directory: mobile
@@ -141,12 +163,12 @@ jobs:
         if: success()
         working-directory: .
         env:
-          UPDATE_SERVER_URL: ${{ secrets.UPDATE_SERVER_URL }}
+          EXPO_PUBLIC_UPDATE_SERVER_URL: ${{ secrets.EXPO_PUBLIC_UPDATE_SERVER_URL }}
           UPDATE_ADMIN_TOKEN: ${{ secrets.UPDATE_ADMIN_TOKEN }}
           APP_VERSION: ${{ steps.version.outputs.APP_VERSION }}
         run: |
-          if [ -z "$UPDATE_SERVER_URL" ] || [ -z "$UPDATE_ADMIN_TOKEN" ]; then
-            echo "UPDATE_SERVER_URL or UPDATE_ADMIN_TOKEN not set, skipping publish"
+          if [ -z "$EXPO_PUBLIC_UPDATE_SERVER_URL" ] || [ -z "$UPDATE_ADMIN_TOKEN" ]; then
+            echo "EXPO_PUBLIC_UPDATE_SERVER_URL or UPDATE_ADMIN_TOKEN not set, skipping publish"
             exit 0
           fi
 
@@ -156,7 +178,7 @@ jobs:
             exit 0
           fi
 
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$UPDATE_SERVER_URL/api/v1/admin/publish" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$EXPO_PUBLIC_UPDATE_SERVER_URL/api/v1/admin/publish" \
             -H "Authorization: Bearer $UPDATE_ADMIN_TOKEN" \
             -F "version=$APP_VERSION" \
             -F "platform=android" \
