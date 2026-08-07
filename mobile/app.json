@@ -2,7 +2,7 @@
   "expo": {
     "name": "Loophrase",
     "slug": "Loophrase",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -12,7 +12,9 @@
     },
     "android": {
       "edgeToEdgeEnabled": false,
-      "permissions": ["REQUEST_INSTALL_PACKAGES"],
+      "permissions": [
+        "REQUEST_INSTALL_PACKAGES"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
