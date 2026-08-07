@@ -10,6 +10,9 @@ jobs:
     container:
       image: ghcr.io/pyaude/loophrase:android-builder
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}
       artifact_name: ${{ steps.version.outputs.ARTIFACT_NAME }}
@@ -20,12 +23,14 @@ jobs:
 
       - name: Read app version
         id: version
+        working-directory: mobile
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "APP_VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "ARTIFACT_NAME=Loophrase-v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
+        working-directory: mobile
         run: npm ci --legacy-peer-deps
 
       # 缓存 expo prebuild 生成的 android 目录
@@ -33,14 +38,16 @@ jobs:
         id: cache-prebuild
         uses: actions/cache@v4
         with:
-          path: android
-          key: prebuild-v2-${{ hashFiles('app.json', 'app.config.*', 'package.json', 'package-lock.json') }}
+          path: mobile/android
+          key: prebuild-v2-${{ hashFiles('mobile/app.json', 'mobile/app.config.*', 'mobile/package.json', 'mobile/package-lock.json') }}
 
       - name: Generate native Android project
+        working-directory: mobile
         if: steps.cache-prebuild.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform android --no-install --clean
 
       - name: Force arm64-only build
+        working-directory: mobile
         run: |
           python3 -c "
           import re
@@ -61,20 +68,21 @@ jobs:
           path: |
             /root/.gradle/caches
             /root/.gradle/wrapper
-          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties') }}
+          key: gradle-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle.properties') }}
           restore-keys: gradle-
 
       - name: Build Release APK
-        working-directory: android
+        working-directory: mobile/android
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4g"
         run: ./gradlew assembleRelease -x lint -x lintVitalRelease
 
       - name: Collect APK
+        working-directory: mobile
         run: |
-          mkdir -p output
+          mkdir -p ../output
           APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          cp "$APK_PATH" output/Loophrase-v${{ steps.version.outputs.APP_VERSION }}.apk
+          cp "$APK_PATH" ../output/Loophrase-v${{ steps.version.outputs.APP_VERSION }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -85,11 +93,12 @@ jobs:
 
       - name: Cleanup Gradle daemon
         if: always()
-        working-directory: android
+        working-directory: mobile/android
         run: ./gradlew --stop || true
 
       - name: Notify DingTalk
         if: always()
+        working-directory: .
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
