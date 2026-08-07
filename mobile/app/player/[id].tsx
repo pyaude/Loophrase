@@ -114,6 +114,10 @@ export default function PlayerScreen() {
   useEffect(() => {
     return () => {
       if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+      // 退出播放器时恢复系统导航栏
+      if (Platform.OS === 'android') {
+        NavigationBar.setHidden(false);
+      }
     };
   }, []);
 

@@ -40,8 +40,10 @@ async def check_update(
     # 存在更新，计算是否需要强制更新并拼装下载地址
     is_force_update = compare_versions(version, latest["min_required_version"]) < 0
     filename = Path(latest["file_path"]).name
-    # request.base_url 形如 http://host:8000/，拼接为绝对 URL
-    download_url = f"{request.base_url}api/v1/download/{filename}"
+    # 优先使用代理传递的协议（https），构造绝对下载地址
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    base = f"{scheme}://{request.headers.get('host', request.url.netloc)}"
+    download_url = f"{base}/api/v1/download/{filename}"
 
     return UpdateCheckResponse(
         has_update=True,
